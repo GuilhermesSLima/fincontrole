@@ -3,23 +3,35 @@
 import { useState, useEffect } from "react";
 import { Transaction, TransactionType, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from "@/types";
 import { todayStr, parseBRL } from "@/lib/utils";
-import { X, Layers, AlertCircle } from "lucide-react";
+import { X, Layers, AlertCircle, TrendingUp, TrendingDown, Calendar, Tag, CheckCircle2, Clock } from "lucide-react";
 
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaveSingle: (tx: Omit<Transaction, "id" | "userId" | "createdAt">) => Promise<void>;
-  onSaveSeries: (base: Omit<Transaction, "id" | "userId" | "createdAt">, months: number) => Promise<void>;
+  onSubmit?: (data: {
+    desc: string;
+    amount: number;
+    type: TransactionType;
+    cat: string;
+    date: string;
+    done: boolean;
+    repeatMonths?: number;
+    updateScope?: "single" | "future" | "all";
+  }) => Promise<void>;
+  onSaveSingle?: (tx: Omit<Transaction, "id" | "userId" | "createdAt">) => Promise<void>;
+  onSaveSeries?: (base: Omit<Transaction, "id" | "userId" | "createdAt">, months: number) => Promise<void>;
   onUpdateSingle?: (id: string, data: Partial<Transaction>) => Promise<void>;
   onUpdateSeriesFuture?: (seriesId: string, fromIndex: number, data: Partial<Transaction>) => Promise<void>;
   onUpdateSeriesAll?: (seriesId: string, data: Partial<Transaction>) => Promise<void>;
   initialData?: Transaction | null;
   defaultType?: TransactionType;
+  currentMonth?: string;
 }
 
 export function TransactionModal({
   isOpen,
   onClose,
+  onSubmit,
   onSaveSingle,
   onSaveSeries,
   onUpdateSingle,
@@ -95,7 +107,18 @@ export function TransactionModal({
 
     setLoading(true);
     try {
-      if (isEditing && initialData) {
+      if (onSubmit) {
+        await onSubmit({
+          desc: desc.trim() || cat,
+          amount,
+          type,
+          cat,
+          date,
+          done,
+          repeatMonths: reps,
+          updateScope: seriesScope,
+        });
+      } else if (isEditing && initialData) {
         const payload: Partial<Transaction> = {
           desc: desc.trim() || cat,
           amount,
@@ -136,9 +159,9 @@ export function TransactionModal({
           done,
         };
 
-        if (reps > 1) {
+        if (reps > 1 && onSaveSeries) {
           await onSaveSeries(payload, reps);
-        } else {
+        } else if (onSaveSingle) {
           await onSaveSingle(payload);
         }
       }
@@ -153,230 +176,248 @@ export function TransactionModal({
   const categories = type === "in" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div
-        className="w-full max-w-md rounded-xl border modal-animate overflow-hidden shadow-2xl"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-      >
+    <div className="fc-modal-overlay">
+      <div className="fc-modal-sheet">
         {/* Header do Modal */}
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
-          <h2 className="text-base font-bold tracking-tight" style={{ color: "var(--text)" }}>
-            {isEditing ? "Editar Lançamento" : "Novo Lançamento"}
-          </h2>
+        <div
+          className="flex items-center justify-between px-5 py-4 border-b"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div className="flex items-center gap-2">
+            {type === "in" ? (
+              <TrendingUp size={20} style={{ color: "var(--gain)" }} />
+            ) : (
+              <TrendingDown size={20} style={{ color: "var(--expense)" }} />
+            )}
+            <h2 className="text-base font-bold tracking-tight" style={{ color: "var(--text)" }}>
+              {isEditing ? "Editar Lançamento" : type === "in" ? "Novo Ganho" : "Novo Gasto"}
+            </h2>
+          </div>
           <button
             type="button"
             onClick={onClose}
             className="p-1 rounded-md transition-colors hover:opacity-75"
-            style={{ color: "var(--muted)" }}
+            style={{ color: "var(--text-muted)" }}
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Formulário */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
           {error && (
             <div
-              className="flex items-center gap-2 p-2.5 rounded-md text-xs"
-              style={{ background: "var(--expense-bg)", color: "var(--expense)", border: "1px solid var(--expense-border)" }}
+              className="flex items-center gap-2 p-3 rounded-lg text-xs font-semibold"
+              style={{
+                background: "var(--expense-bg)",
+                color: "var(--expense)",
+                border: "1px solid var(--expense-border)",
+              }}
             >
-              <AlertCircle size={14} /> {error}
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
           {/* Seletor Tipo: Gasto / Ganho */}
-          <div className="grid grid-cols-2 p-1 rounded-lg border text-xs font-semibold" style={{ background: "var(--subtle)", borderColor: "var(--border)" }}>
-            <button
-              type="button"
-              onClick={() => setType("out")}
-              className={`py-2 rounded-md transition-all ${
-                type === "out" ? "shadow-sm font-bold" : "opacity-60 hover:opacity-100"
-              }`}
-              style={{
-                background: type === "out" ? "var(--expense-bg)" : "transparent",
-                color: type === "out" ? "var(--expense)" : "var(--muted)",
-                border: type === "out" ? "1px solid var(--expense-border)" : "1px solid transparent",
-              }}
+          {!isEditing && (
+            <div
+              className="grid grid-cols-2 p-1 rounded-xl border text-xs font-bold"
+              style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
             >
-              Gasto (−)
-            </button>
-            <button
-              type="button"
-              onClick={() => setType("in")}
-              className={`py-2 rounded-md transition-all ${
-                type === "in" ? "shadow-sm font-bold" : "opacity-60 hover:opacity-100"
-              }`}
-              style={{
-                background: type === "in" ? "var(--gain-bg)" : "transparent",
-                color: type === "in" ? "var(--gain)" : "var(--muted)",
-                border: type === "in" ? "1px solid var(--gain-border)" : "1px solid transparent",
-              }}
-            >
-              Ganho (+)
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setType("out")}
+                className={`py-2 rounded-lg transition-all ${
+                  type === "out" ? "shadow-sm font-black" : "opacity-60 hover:opacity-100"
+                }`}
+                style={{
+                  background: type === "out" ? "var(--expense-bg)" : "transparent",
+                  color: type === "out" ? "var(--expense)" : "var(--text-muted)",
+                  border: type === "out" ? "1px solid var(--expense-border)" : "1px solid transparent",
+                }}
+              >
+                − Gasto (Despesa)
+              </button>
+              <button
+                type="button"
+                onClick={() => setType("in")}
+                className={`py-2 rounded-lg transition-all ${
+                  type === "in" ? "shadow-sm font-black" : "opacity-60 hover:opacity-100"
+                }`}
+                style={{
+                  background: type === "in" ? "var(--gain-bg)" : "transparent",
+                  color: type === "in" ? "var(--gain)" : "var(--text-muted)",
+                  border: type === "in" ? "1px solid var(--gain-border)" : "1px solid transparent",
+                }}
+              >
+                + Ganho (Receita)
+              </button>
+            </div>
+          )}
 
-          {/* Descrição */}
-          <div>
-            <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-              Descrição
-            </label>
-            <input
-              type="text"
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              placeholder="Ex.: Mensalidade faculdade, bolsa, mercado…"
-              maxLength={80}
-              className="w-full px-3 py-2 text-sm rounded-md border outline-none transition-all"
-              style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
-              onFocus={(e) => (e.target.style.borderColor = "var(--border-focus)")}
-              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-            />
-          </div>
-
-          {/* Valor e Categoria */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Descrição e Valor */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                Valor (R$)
-              </label>
+              <label className="fc-label">Descrição</label>
               <input
                 type="text"
-                inputMode="decimal"
-                value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
-                placeholder="0,00"
+                placeholder={type === "in" ? "Ex.: Salário, Venda" : "Ex.: Mercado, Aluguel"}
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                className="fc-input"
                 required
-                className="w-full px-3 py-2 text-sm rounded-md border outline-none font-semibold tabular transition-all"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
-                onFocus={(e) => (e.target.style.borderColor = "var(--border-focus)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                Categoria
-              </label>
-              <select
-                value={cat}
-                onChange={(e) => setCat(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-md border outline-none transition-all"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <label className="fc-label">Valor (R$)</label>
+              <input
+                type="text"
+                placeholder="0,00"
+                value={amountStr}
+                onChange={(e) => setAmountStr(e.target.value)}
+                className="fc-input font-bold"
+                required
+              />
             </div>
           </div>
 
-          {/* Data e Repetição */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Categoria e Data */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                Data
-              </label>
+              <label className="fc-label">Categoria</label>
+              <select
+                value={cat}
+                onChange={(e) => setCat(e.target.value)}
+                className="fc-select"
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="fc-label">Data de Vencimento / Crédito</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                className="fc-input"
                 required
-                className="w-full px-3 py-2 text-sm rounded-md border outline-none transition-all"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
               />
             </div>
-            {!isEditing && (
-              <div>
-                <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  Repetir (Meses)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={reps}
-                  onChange={(e) => setReps(parseInt(e.target.value) || 1)}
-                  className="w-full px-3 py-2 text-sm rounded-md border outline-none transition-all"
-                  style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
-                />
-              </div>
-            )}
           </div>
 
-          {!isEditing && reps > 1 && (
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Serão geradas <strong>{reps} parcelas mensais</strong> sucessivas com identificador de série agrupada.
-            </p>
+          {/* Repetição em Meses (Série de Parcelas) */}
+          {!isEditing && (
+            <div
+              className="p-3.5 rounded-xl border space-y-2.5"
+              style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold" style={{ color: "var(--text)" }}>
+                  Repetição / Parcelamento
+                </span>
+                <span className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                  {reps > 1 ? `Repetir por ${reps} meses` : "Lançamento único"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="1"
+                  max="60"
+                  value={reps}
+                  onChange={(e) => setReps(parseInt(e.target.value) || 1)}
+                  className="flex-1 accent-blue-600"
+                />
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={reps}
+                  onChange={(e) => setReps(Math.min(60, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="fc-input text-center font-bold"
+                  style={{ width: 64, padding: "4px 8px" }}
+                />
+              </div>
+            </div>
           )}
 
-          {/* Opções de Escopo de Edição para Séries */}
-          {isEditing && isPartOfSeries && (
-            <div className="p-3 rounded-lg border space-y-2" style={{ background: "var(--subtle)", borderColor: "var(--border)" }}>
-              <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--text)" }}>
-                <Layers size={14} style={{ color: "var(--accent)" }} />
-                <span>Esta parcela faz parte de uma série ({initialData.seriesIndex}/{initialData.seriesTotal})</span>
+          {/* Escopo de Edição em caso de Série */}
+          {isPartOfSeries && (
+            <div
+              className="p-3.5 rounded-xl border space-y-2"
+              style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
+            >
+              <div className="text-xs font-bold" style={{ color: "var(--text)" }}>
+                Este lançamento faz parte de uma série ({initialData?.seriesIndex}/{initialData?.seriesTotal})
               </div>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
-                O que você deseja atualizar com as alterações acima?
-              </p>
-              <div className="space-y-1.5 pt-1">
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <div className="space-y-1.5 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer font-medium">
                   <input
                     type="radio"
                     name="scope"
                     checked={seriesScope === "single"}
                     onChange={() => setSeriesScope("single")}
-                    className="accent-blue-600"
                   />
-                  <span>Apenas esta parcela</span>
+                  <span>Alterar apenas esta parcela</span>
                 </label>
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer font-medium">
                   <input
                     type="radio"
                     name="scope"
                     checked={seriesScope === "future"}
                     onChange={() => setSeriesScope("future")}
-                    className="accent-blue-600"
                   />
-                  <span>Esta e todas as parcelas futuras ({initialData.seriesIndex} até {initialData.seriesTotal})</span>
+                  <span>Alterar esta e as parcelas futuras</span>
                 </label>
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer font-medium">
                   <input
                     type="radio"
                     name="scope"
                     checked={seriesScope === "all"}
                     onChange={() => setSeriesScope("all")}
-                    className="accent-blue-600"
                   />
-                  <span>Todas as parcelas da série</span>
+                  <span>Alterar todas as parcelas da série</span>
                 </label>
               </div>
             </div>
           )}
 
-          {/* Checkbox Realizado */}
-          <label className="flex items-center gap-2.5 text-xs font-medium cursor-pointer pt-1" style={{ color: "var(--text)" }}>
+          {/* Status Inicial: Previsto ou Realizado */}
+          <div className="flex items-center gap-2 pt-1">
             <input
               type="checkbox"
+              id="tx-done-checkbox"
               checked={done}
               onChange={(e) => setDone(e.target.checked)}
-              className="w-4 h-4 rounded accent-blue-600"
+              className="w-4 h-4 rounded border-gray-300 accent-blue-600 cursor-pointer"
             />
-            <span>Já realizado ({type === "in" ? "recebido em conta" : "pago"})</span>
-          </label>
+            <label htmlFor="tx-done-checkbox" className="text-xs font-bold cursor-pointer" style={{ color: "var(--text)" }}>
+              {type === "in" ? "Já foi recebido na conta" : "Já foi pago"}
+            </label>
+          </div>
 
-          {/* Botão de Envio */}
-          <div className="pt-2">
+          {/* Botões de Ação */}
+          <div className="flex items-center justify-end gap-2 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="fc-btn fc-btn-secondary fc-btn-sm"
+            >
+              Cancelar
+            </button>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-md font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-60 shadow-sm"
-              style={{
-                background: type === "in" ? "var(--gain)" : "var(--expense)",
-                color: "#ffffff",
-              }}
+              className={`fc-btn fc-btn-sm font-bold ${
+                type === "in" ? "fc-btn-gain" : "fc-btn-expense"
+              }`}
             >
-              {loading ? "Salvando…" : isEditing ? "Salvar alterações" : type === "in" ? "Adicionar ganho" : "Adicionar gasto"}
+              {loading ? "Salvando…" : isEditing ? "Salvar Alterações" : "Adicionar Lançamento"}
             </button>
           </div>
         </form>

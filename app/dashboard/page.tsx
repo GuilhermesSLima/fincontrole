@@ -28,17 +28,18 @@ import {
   Wallet,
   Clock,
   CheckCircle2,
+  Search,
   Calendar,
   Layers,
   ArrowUpDown,
-  Search,
+  Filter,
 } from "lucide-react";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Visualização: 'month' | 'year' | 'custom'
+  // Modo de visualização: 'month' | 'year' | 'custom'
   const [viewMode, setViewMode] = useState<"month" | "year" | "custom">("month");
   const [currentMonth, setCurrentMonth] = useState("2026-11");
   const [customStart, setCustomStart] = useState("2026-09-01");
@@ -52,14 +53,14 @@ export default function DashboardPage() {
     setCustomEnd(current + "-28");
   }, []);
 
-  // Redirecionamento seguro no useEffect para evitar erro do React Router em render
+  // Redirecionamento seguro pós-render
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace("/login");
     }
   }, [user, authLoading, router]);
 
-  // Filtros de Lançamento
+  // Filtros
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out" | "pending" | "done">("all");
   const [search, setSearch] = useState("");
 
@@ -69,7 +70,7 @@ export default function DashboardPage() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
 
-  // Hook de transações
+  // Hook Firestore de transações
   const {
     transactions,
     loading: txLoading,
@@ -84,7 +85,7 @@ export default function DashboardPage() {
     updateSeriesAll,
   } = useTransactions();
 
-  // Filtragem dos dados de acordo com o período selecionado
+  // Filtro de transações pelo período
   const periodTransactions = useMemo(() => {
     return transactions.filter((t) => {
       if (viewMode === "month") {
@@ -101,35 +102,8 @@ export default function DashboardPage() {
     });
   }, [transactions, viewMode, currentMonth, customStart, customEnd]);
 
-  // Cálculos de Resumo
-  const summary = useMemo(() => {
-    let totalIn = 0;
-    let realizedIn = 0;
-    let totalOut = 0;
-    let realizedOut = 0;
-
-    periodTransactions.forEach((t) => {
-      if (t.type === "in") {
-        totalIn += t.amount;
-        if (t.done) realizedIn += t.amount;
-      } else {
-        totalOut += t.amount;
-        if (t.done) realizedOut += t.amount;
-      }
-    });
-
-    return {
-      totalIn,
-      realizedIn,
-      totalOut,
-      realizedOut,
-      estimatedBalance: totalIn - totalOut,
-      realizedBalance: realizedIn - realizedOut,
-    };
-  }, [periodTransactions]);
-
-  // Transações com filtro de tipo e busca aplicados
-  const displayedTransactions = useMemo(() => {
+  // Transações filtradas por status/tipo e texto de busca
+  const filteredTransactions = useMemo(() => {
     return periodTransactions
       .filter((t) => {
         if (txFilter === "in") return t.type === "in";
@@ -141,32 +115,85 @@ export default function DashboardPage() {
       .filter((t) => {
         if (!search.trim()) return true;
         const q = search.toLowerCase();
-        return t.desc.toLowerCase().includes(q) || t.cat.toLowerCase().includes(q);
+        return (
+          t.desc.toLowerCase().includes(q) ||
+          t.cat.toLowerCase().includes(q) ||
+          t.date.includes(q)
+        );
       })
-      .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+      .sort((a, b) => b.date.localeCompare(a.date));
   }, [periodTransactions, txFilter, search]);
 
-  // Dados para o Gráfico de Evolução dos Últimos 6 Meses
-  const last6 = useMemo(() => {
+  // Cálculo rigoroso dos resumos financeiros
+  const summary = useMemo(() => {
+    let totalIn = 0;
+    let realIn = 0;
+    let totalOut = 0;
+    let realOut = 0;
+
+    periodTransactions.forEach((t) => {
+      if (t.type === "in") {
+        totalIn += t.amount;
+        if (t.done) realIn += t.amount;
+      } else {
+        totalOut += t.amount;
+        if (t.done) realOut += t.amount;
+      }
+    });
+
+    const estimatedBalance = totalIn - totalOut;
+    const realBalance = realIn - realOut;
+
+    return {
+      totalIn,
+      realIn,
+      totalOut,
+      realOut,
+      estimatedBalance,
+      realBalance,
+    };
+  }, [periodTransactions]);
+
+  // Comparativo dos últimos 6 meses para o gráfico
+  const last6Data = useMemo(() => {
     const months = getLast6Months(currentMonth);
+    const maxVal = Math.max(
+      1,
+      ...months.map((m) => {
+        const inM = transactions
+          .filter((t) => t.type === "in" && t.date.startsWith(m))
+          .reduce((acc, c) => acc + c.amount, 0);
+        const outM = transactions
+          .filter((t) => t.type === "out" && t.date.startsWith(m))
+          .reduce((acc, c) => acc + c.amount, 0);
+        return Math.max(inM, outM);
+      })
+    );
+
     return months.map((m) => {
-      const monthTx = transactions.filter((t) => t.date.startsWith(m));
-      let mIn = 0;
-      let mOut = 0;
-      monthTx.forEach((t) => {
-        if (t.type === "in") mIn += t.amount;
-        else mOut += t.amount;
-      });
-      return { month: m, label: monthShort(m), in: mIn, out: mOut };
+      const inVal = transactions
+        .filter((t) => t.type === "in" && t.date.startsWith(m))
+        .reduce((acc, c) => acc + c.amount, 0);
+      const outVal = transactions
+        .filter((t) => t.type === "out" && t.date.startsWith(m))
+        .reduce((acc, c) => acc + c.amount, 0);
+
+      const inHeight = Math.max(4, Math.round((inVal / maxVal) * 110));
+      const outHeight = Math.max(4, Math.round((outVal / maxVal) * 110));
+
+      return {
+        month: m,
+        label: monthShort(m),
+        inVal,
+        outVal,
+        inHeight,
+        outHeight,
+      };
     });
   }, [transactions, currentMonth]);
 
-  const maxValLast6 = useMemo(() => {
-    return Math.max(1, ...last6.flatMap((d) => [d.in, d.out]));
-  }, [last6]);
-
-  // Dados para Distribuição por Categoria
-  const categoryStats = useMemo(() => {
+  // Distribuição de gastos por categoria
+  const catDistribution = useMemo(() => {
     const expenseTx = periodTransactions.filter((t) => t.type === "out");
     const map: Record<string, number> = {};
     expenseTx.forEach((t) => {
@@ -190,7 +217,7 @@ export default function DashboardPage() {
             className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin"
             style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
           />
-          <span className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+          <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>
             Carregando FinControle…
           </span>
         </div>
@@ -219,101 +246,68 @@ export default function DashboardPage() {
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--text)" }}>
       <Navbar onOpenNewTx={handleOpenAdd} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* Alerta de Permissão do Firestore se necessário */}
+      <main className="fc-container">
+        {/* Alerta de Configuração de Regras do Firestore se necessário */}
         {txError === "permission-denied" && (
-          <div
-            className="p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-sm"
-            style={{
-              background: "var(--pending-bg)",
-              borderColor: "var(--pending-border)",
-              color: "var(--pending)",
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm">⚠️ Atenção:</span>
-              <span>
-                As regras de segurança do seu Cloud Firestore ainda precisam ser publicadas para salvar dados.
-              </span>
+          <div className="fc-golden-rule-banner" style={{ background: "var(--pending-bg)", borderColor: "var(--pending-border)", color: "var(--pending-text)" }}>
+            <span className="text-base font-bold">⚠️ Atenção:</span>
+            <div className="flex-1 text-xs">
+              As regras de segurança do seu Cloud Firestore ainda precisam ser publicadas para salvar seus lançamentos em nuvem.
             </div>
             <a
               href="https://console.firebase.google.com/project/fincontrole-23467/firestore/rules"
               target="_blank"
               rel="noreferrer"
-              className="px-3.5 py-1.5 rounded-lg font-bold text-white whitespace-nowrap shadow-sm hover:opacity-90"
-              style={{ background: "var(--accent)" }}
+              className="fc-btn fc-btn-primary fc-btn-sm"
             >
               Publicar Regras no Firebase
             </a>
           </div>
         )}
 
-        {/* Barra Superior: Modo de Período e Seletor de Data */}
-        <div
-          className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl border shadow-sm"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-        >
-          {/* Seletor de Modo: Mensal / Anual / Custom */}
-          <div
-            className="flex items-center p-1 rounded-xl border text-xs font-semibold w-full sm:w-auto"
-            style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
-          >
+        {/* Barra de Período e Navegação de Data */}
+        <section className="fc-period-bar">
+          {/* Seletor de Modo: Mensal / Anual / Customizado */}
+          <div className="fc-segmented-control">
             <button
+              type="button"
               onClick={() => setViewMode("month")}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg transition-all ${
-                viewMode === "month" ? "font-bold shadow-sm" : "opacity-60 hover:opacity-100"
-              }`}
-              style={{
-                background: viewMode === "month" ? "var(--surface)" : "transparent",
-                color: "var(--text)",
-              }}
+              className={`fc-segmented-btn ${viewMode === "month" ? "active" : ""}`}
             >
               Mensal
             </button>
             <button
+              type="button"
               onClick={() => setViewMode("year")}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg transition-all ${
-                viewMode === "year" ? "font-bold shadow-sm" : "opacity-60 hover:opacity-100"
-              }`}
-              style={{
-                background: viewMode === "year" ? "var(--surface)" : "transparent",
-                color: "var(--text)",
-              }}
+              className={`fc-segmented-btn ${viewMode === "year" ? "active" : ""}`}
             >
               Anual ({currentMonth.slice(0, 4)})
             </button>
             <button
+              type="button"
               onClick={() => setViewMode("custom")}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg transition-all ${
-                viewMode === "custom" ? "font-bold shadow-sm" : "opacity-60 hover:opacity-100"
-              }`}
-              style={{
-                background: viewMode === "custom" ? "var(--surface)" : "transparent",
-                color: "var(--text)",
-              }}
+              className={`fc-segmented-btn ${viewMode === "custom" ? "active" : ""}`}
             >
               Customizado
             </button>
           </div>
 
-          {/* Navegador de Data */}
+          {/* Navegador Mensal */}
           {viewMode === "month" && (
-            <div className="flex items-center gap-3">
+            <div className="fc-month-nav">
               <button
-                onClick={() => setCurrentMonth(shiftMonth(currentMonth, -1))}
-                className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80 active:scale-95 shadow-sm"
-                style={{ borderColor: "var(--border)", color: "var(--text)", background: "var(--subtle)" }}
+                type="button"
+                onClick={() => setCurrentMonth((prev) => shiftMonth(prev, -1))}
+                className="fc-month-nav-btn"
                 title="Mês anterior"
               >
                 <ChevronLeft size={18} />
               </button>
-              <span className="font-extrabold text-sm sm:text-base min-w-[160px] text-center capitalize tracking-tight">
-                {monthLabel(currentMonth)}
-              </span>
+              <span className="fc-month-nav-title">{monthLabel(currentMonth)}</span>
               <button
-                onClick={() => setCurrentMonth(shiftMonth(currentMonth, 1))}
-                className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80 active:scale-95 shadow-sm"
-                style={{ borderColor: "var(--border)", color: "var(--text)", background: "var(--subtle)" }}
+                type="button"
+                onClick={() => setCurrentMonth((prev) => shiftMonth(prev, 1))}
+                className="fc-month-nav-btn"
                 title="Próximo mês"
               >
                 <ChevronRight size={18} />
@@ -321,200 +315,126 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* Navegador Anual */}
           {viewMode === "year" && (
-            <div className="flex items-center gap-3">
+            <div className="fc-month-nav">
               <button
-                onClick={() => setCurrentMonth(shiftMonth(currentMonth, -12))}
-                className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80 shadow-sm"
-                style={{ borderColor: "var(--border)", color: "var(--text)", background: "var(--subtle)" }}
+                type="button"
+                onClick={() => setCurrentMonth((prev) => shiftMonth(prev, -12))}
+                className="fc-month-nav-btn"
+                title="Ano anterior"
               >
                 <ChevronLeft size={18} />
               </button>
-              <span className="font-extrabold text-base tracking-tight">{currentMonth.slice(0, 4)}</span>
+              <span className="fc-month-nav-title">Ano de {currentMonth.slice(0, 4)}</span>
               <button
-                onClick={() => setCurrentMonth(shiftMonth(currentMonth, 12))}
-                className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80 shadow-sm"
-                style={{ borderColor: "var(--border)", color: "var(--text)", background: "var(--subtle)" }}
+                type="button"
+                onClick={() => setCurrentMonth((prev) => shiftMonth(prev, 12))}
+                className="fc-month-nav-btn"
+                title="Próximo ano"
               >
                 <ChevronRight size={18} />
               </button>
             </div>
           )}
 
+          {/* Navegador Customizado */}
           {viewMode === "custom" && (
-            <div className="flex items-center gap-2 text-xs font-semibold">
+            <div className="flex items-center gap-2 text-xs">
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border outline-none"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+                className="fc-input"
+                style={{ padding: "6px 10px", width: "auto" }}
               />
-              <span>até</span>
+              <span style={{ color: "var(--text-muted)" }}>até</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border outline-none"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+                className="fc-input"
+                style={{ padding: "6px 10px", width: "auto" }}
               />
             </div>
           )}
-        </div>
+        </section>
 
-        {/* 3 Cards de Resumo: Ganhos, Gastos, Saldo com Botões Dedicados */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Card: Ganhos Previstos */}
-          <div
-            className="rounded-2xl p-6 border shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
-            <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: "var(--gain)" }} />
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase font-extrabold tracking-wider" style={{ color: "var(--muted)" }}>
-                  Ganhos Previstos
-                </span>
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                  style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
-                >
-                  <TrendingUp size={16} />
-                </div>
-              </div>
-              <div className="text-3xl font-black tabular tracking-tight" style={{ color: "var(--gain)" }}>
-                {brl(summary.totalIn)}
-              </div>
-              <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                <span style={{ color: "var(--muted)" }}>Já recebido:</span>
-                <strong className="tabular font-bold" style={{ color: "var(--text)" }}>
-                  {brl(summary.realizedIn)}
-                </strong>
+        {/* 3 CARDS DE RESUMO (GANHOS, GASTOS, SALDO LIVRE) */}
+        <section className="fc-metrics-grid">
+          {/* Card Ganhos */}
+          <div className="fc-metric-card fc-metric-gain">
+            <div className="fc-metric-header">
+              <span className="fc-metric-caption">Ganhos do Período</span>
+              <div className="fc-metric-icon-wrap">
+                <TrendingUp size={18} />
               </div>
             </div>
-
-            {/* Botão Dedicado + Adicionar Ganho */}
-            <button
-              type="button"
-              onClick={() => handleOpenAdd("in")}
-              className="w-full py-2.5 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 active:scale-98 shadow-sm"
-              style={{ background: "var(--gain)" }}
-            >
-              <Plus size={15} />
-              <span>Adicionar Ganho</span>
-            </button>
+            <div className="fc-metric-val num-tabular">{brl(summary.totalIn)}</div>
+            <div className="fc-metric-footer">
+              <span>Realizado recebido:</span>
+              <strong className="num-tabular" style={{ color: "var(--gain)" }}>
+                {brl(summary.realIn)}
+              </strong>
+            </div>
           </div>
 
-          {/* Card: Gastos Previstos */}
-          <div
-            className="rounded-2xl p-6 border shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
-            <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: "var(--expense)" }} />
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase font-extrabold tracking-wider" style={{ color: "var(--muted)" }}>
-                  Gastos Previstos
-                </span>
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                  style={{ background: "var(--expense-bg)", color: "var(--expense)" }}
-                >
-                  <TrendingDown size={16} />
-                </div>
-              </div>
-              <div className="text-3xl font-black tabular tracking-tight" style={{ color: "var(--expense)" }}>
-                {brl(summary.totalOut)}
-              </div>
-              <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                <span style={{ color: "var(--muted)" }}>Já pago:</span>
-                <strong className="tabular font-bold" style={{ color: "var(--text)" }}>
-                  {brl(summary.realizedOut)}
-                </strong>
+          {/* Card Gastos */}
+          <div className="fc-metric-card fc-metric-expense">
+            <div className="fc-metric-header">
+              <span className="fc-metric-caption">Gastos do Período</span>
+              <div className="fc-metric-icon-wrap">
+                <TrendingDown size={18} />
               </div>
             </div>
-
-            {/* Botão Dedicado + Adicionar Gasto */}
-            <button
-              type="button"
-              onClick={() => handleOpenAdd("out")}
-              className="w-full py-2.5 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 active:scale-98 shadow-sm"
-              style={{ background: "var(--expense)" }}
-            >
-              <Plus size={15} />
-              <span>Adicionar Gasto</span>
-            </button>
+            <div className="fc-metric-val num-tabular">{brl(summary.totalOut)}</div>
+            <div className="fc-metric-footer">
+              <span>Realizado pago:</span>
+              <strong className="num-tabular" style={{ color: "var(--expense)" }}>
+                {brl(summary.realOut)}
+              </strong>
+            </div>
           </div>
 
-          {/* Card: Saldo Livre Estimado */}
-          <div
-            className="rounded-2xl p-6 border shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
-            <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: "var(--accent)" }} />
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase font-extrabold tracking-wider" style={{ color: "var(--muted)" }}>
-                  Saldo Livre Estimado
-                </span>
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                  style={{ background: "var(--accent-bg)", color: "var(--accent)" }}
-                >
-                  <Wallet size={16} />
-                </div>
-              </div>
-              <div
-                className={`text-3xl font-black tabular tracking-tight ${
-                  summary.estimatedBalance >= 0 ? "" : "text-red-500"
-                }`}
-                style={{ color: summary.estimatedBalance >= 0 ? "var(--accent)" : undefined }}
-              >
-                {brl(summary.estimatedBalance)}
-              </div>
-              <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                <span style={{ color: "var(--muted)" }}>Realizado hoje em conta:</span>
-                <strong
-                  className="tabular font-bold"
-                  style={{ color: summary.realizedBalance >= 0 ? "var(--gain)" : "var(--expense)" }}
-                >
-                  {brl(summary.realizedBalance)}
-                </strong>
+          {/* Card Saldo Livre */}
+          <div className="fc-metric-card fc-metric-balance">
+            <div className="fc-metric-header">
+              <span className="fc-metric-caption">Saldo Livre Estimado</span>
+              <div className="fc-metric-icon-wrap">
+                <Wallet size={18} />
               </div>
             </div>
-
-            {/* Atalho de Navegação para Metas */}
-            <button
-              type="button"
-              onClick={() => router.push("/metas")}
-              className="w-full py-2.5 rounded-xl font-bold text-xs border flex items-center justify-center gap-1.5 transition-all hover:opacity-85 shadow-sm"
-              style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
-            >
-              <span>Ver Metas e Reservas →</span>
-            </button>
+            <div className="fc-metric-val num-tabular">{brl(summary.estimatedBalance)}</div>
+            <div className="fc-metric-footer">
+              <span>Saldo em conta hoje:</span>
+              <strong className="num-tabular" style={{ color: "var(--accent)" }}>
+                {brl(summary.realBalance)}
+              </strong>
+            </div>
           </div>
         </section>
 
-        {/* Lançamentos do Período */}
-        <section
-          className="rounded-2xl p-6 border shadow-sm space-y-5"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-        >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* LANÇAMENTOS DO PERÍODO */}
+        <section className="fc-card" style={{ marginBottom: 24 }}>
+          <div className="fc-card-header">
             <div>
-              <h2 className="text-lg font-bold tracking-tight">Lançamentos do Período</h2>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-                Alterne entre Previsto e Realizado com apenas 1 clique sobre o badge de status
+              <h2 className="fc-card-title">
+                <Layers size={18} style={{ color: "var(--accent)" }} />
+                <span>Lançamentos do Período</span>
+              </h2>
+              <p className="fc-card-subtitle">
+                Clique no status para alternar entre Previsto e Realizado em 1 clique
               </p>
             </div>
 
-            {/* Botões Rápidos de Ganho e Gasto */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
+              <span className="fc-badge fc-badge-accent">
+                {filteredTransactions.length} {filteredTransactions.length === 1 ? "item" : "itens"}
+              </span>
               <button
                 type="button"
                 onClick={() => handleOpenAdd("in")}
-                className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 shadow-sm"
-                style={{ background: "var(--gain)" }}
+                className="fc-btn fc-btn-gain fc-btn-sm"
               >
                 <Plus size={14} />
                 <span>+ Ganho</span>
@@ -522,8 +442,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => handleOpenAdd("out")}
-                className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 shadow-sm"
-                style={{ background: "var(--expense)" }}
+                className="fc-btn fc-btn-expense fc-btn-sm"
               >
                 <Plus size={14} />
                 <span>+ Gasto</span>
@@ -531,162 +450,175 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Filtros e Busca */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              {[
-                { id: "all", label: "Todos" },
-                { id: "in", label: "Ganhos (+)" },
-                { id: "out", label: "Gastos (−)" },
-                { id: "pending", label: "Previstos" },
-                { id: "done", label: "Realizados" },
-              ].map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setTxFilter(f.id as any)}
-                  className={`px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all ${
-                    txFilter === f.id ? "shadow-sm" : "hover:opacity-80"
-                  }`}
-                  style={{
-                    background: txFilter === f.id ? "var(--accent)" : "var(--subtle)",
-                    color: txFilter === f.id ? "#ffffff" : "var(--muted)",
-                    borderColor: txFilter === f.id ? "var(--accent)" : "var(--border)",
-                  }}
-                >
-                  {f.label}
-                </button>
-              ))}
+          {/* Barra de Filtros e Busca */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="fc-filter-group">
+              <button
+                type="button"
+                onClick={() => setTxFilter("all")}
+                className={`fc-filter-pill ${txFilter === "all" ? "active" : ""}`}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                onClick={() => setTxFilter("in")}
+                className={`fc-filter-pill ${txFilter === "in" ? "active" : ""}`}
+              >
+                Ganhos (+)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTxFilter("out")}
+                className={`fc-filter-pill ${txFilter === "out" ? "active" : ""}`}
+              >
+                Gastos (−)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTxFilter("pending")}
+                className={`fc-filter-pill ${txFilter === "pending" ? "active" : ""}`}
+              >
+                Previstos
+              </button>
+              <button
+                type="button"
+                onClick={() => setTxFilter("done")}
+                className={`fc-filter-pill ${txFilter === "done" ? "active" : ""}`}
+              >
+                Realizados
+              </button>
             </div>
 
+            {/* Input de Busca */}
             <div className="relative w-full sm:w-64">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-muted)" }}
+              />
               <input
                 type="text"
-                placeholder="Buscar lançamento ou categoria…"
+                placeholder="Buscar descrição ou categoria…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border outline-none font-medium"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+                className="fc-input"
+                style={{ paddingLeft: 32, paddingTop: 6, paddingBottom: 6, fontSize: "0.82rem" }}
               />
             </div>
           </div>
 
           {/* Lista de Transações */}
-          {displayedTransactions.length === 0 ? (
+          {filteredTransactions.length === 0 ? (
             <div
-              className="text-center py-12 rounded-2xl border space-y-4"
-              style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
+              className="p-10 text-center rounded-xl border border-dashed flex flex-col items-center justify-center gap-3"
+              style={{ borderColor: "var(--border)", background: "var(--subtle)" }}
             >
-              <div className="text-sm font-semibold" style={{ color: "var(--muted)" }}>
-                Nenhum lançamento registrado neste período.
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ background: "var(--surface)", color: "var(--text-muted)" }}
+              >
+                <Search size={22} />
               </div>
-              <div className="flex items-center justify-center gap-3">
+              <div>
+                <p className="text-sm font-bold" style={{ color: "var(--text)" }}>
+                  Nenhum lançamento encontrado
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                  {search
+                    ? "Tente buscar por outro termo ou limpar os filtros."
+                    : "Cadastre seu primeiro ganho ou gasto para começar a gerenciar suas finanças."}
+                </p>
+              </div>
+              <div className="flex gap-2 mt-2">
                 <button
                   type="button"
                   onClick={() => handleOpenAdd("in")}
-                  className="px-4 py-2.5 rounded-xl font-bold text-xs text-white shadow-sm hover:opacity-90"
-                  style={{ background: "var(--gain)" }}
+                  className="fc-btn fc-btn-gain fc-btn-sm"
                 >
-                  + Adicionar Primeiro Ganho
+                  <Plus size={14} /> + Cadastrar Ganho
                 </button>
                 <button
                   type="button"
                   onClick={() => handleOpenAdd("out")}
-                  className="px-4 py-2.5 rounded-xl font-bold text-xs text-white shadow-sm hover:opacity-90"
-                  style={{ background: "var(--expense)" }}
+                  className="fc-btn fc-btn-expense fc-btn-sm"
                 >
-                  + Adicionar Primeiro Gasto
+                  <Plus size={14} /> + Cadastrar Gasto
                 </button>
               </div>
             </div>
           ) : (
-            <div className="divide-y rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
-              {displayedTransactions.map((tx) => {
+            <div className="fc-tx-list">
+              {filteredTransactions.map((tx) => {
                 const isGain = tx.type === "in";
-                const dateParts = tx.date.split("-");
-                const formattedDate = `${dateParts[2]}/${dateParts[1]}`;
-
                 return (
-                  <div
-                    key={tx.id}
-                    className="p-4 flex items-center justify-between gap-4 group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/20"
-                  >
-                    {/* Lado Esquerdo: Ícone + Info */}
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-none border shadow-xs"
-                        style={{
-                          background: isGain ? "var(--gain-bg)" : "var(--expense-bg)",
-                          color: isGain ? "var(--gain)" : "var(--expense)",
-                          borderColor: isGain ? "var(--gain-border)" : "var(--expense-border)",
-                        }}
-                      >
+                  <div key={tx.id} className="fc-tx-item">
+                    <div className="fc-tx-left">
+                      <div className={`fc-tx-icon-badge ${isGain ? "gain" : "expense"}`}>
                         {isGain ? "+" : "−"}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 font-bold text-sm truncate">
-                          <span>{tx.desc}</span>
+                      <div className="fc-tx-info">
+                        <span className="fc-tx-title">{tx.desc}</span>
+                        <div className="fc-tx-meta">
+                          <span className="fc-tx-cat-pill">{tx.cat}</span>
+                          <span>{tx.date.split("-").reverse().join("/")}</span>
                           {tx.seriesId && (
                             <span
-                              className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border"
-                              style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--accent)" }}
-                              title={`Parcela ${tx.seriesIndex} de ${tx.seriesTotal}`}
+                              className="px-2 py-0.5 rounded text-[11px] font-bold"
+                              style={{ background: "var(--accent-bg)", color: "var(--accent-text)" }}
                             >
-                              <Layers size={10} />
-                              {tx.seriesIndex}/{tx.seriesTotal}
+                              Parcela {tx.seriesIndex}/{tx.seriesTotal}
                             </span>
                           )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-                          <span>{tx.cat}</span>
-                          <span>•</span>
-                          <span>{formattedDate}</span>
-                          <span>•</span>
-                          {/* Badge interativo de Previsto/Realizado */}
-                          <button
-                            type="button"
-                            onClick={() => toggleDone(tx.id, !tx.done)}
-                            title="Clique para alternar Previsto / Realizado"
-                            className="px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-transform active:scale-95 cursor-pointer shadow-2xs"
-                            style={{
-                              background: tx.done ? "var(--gain-bg)" : "var(--pending-bg)",
-                              color: tx.done ? "var(--gain)" : "var(--pending)",
-                              borderColor: tx.done ? "var(--gain-border)" : "var(--pending-border)",
-                            }}
-                          >
-                            {tx.done ? (isGain ? "recebido" : "pago") : "previsto"}
-                          </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Lado Direito: Valor + Ações */}
-                    <div className="flex items-center gap-3.5 flex-none">
-                      <span
-                        className="font-extrabold text-base tabular tracking-tight"
-                        style={{ color: isGain ? "var(--gain)" : "var(--expense)" }}
-                      >
-                        {isGain ? "+ " : "− "}
-                        {brl(tx.amount)}
-                      </span>
-                      <div className="flex items-center gap-1">
+                    <div className="fc-tx-right">
+                      <div className="fc-tx-value-block">
+                        <span className={`fc-tx-amount num-tabular ${isGain ? "gain" : "expense"}`}>
+                          {isGain ? "+" : "−"} {brl(tx.amount)}
+                        </span>
+
+                        {/* Badge de Status Interativo (Alterna com 1 clique) */}
+                        <button
+                          type="button"
+                          onClick={() => toggleDone(tx.id, !tx.done)}
+                          className={`fc-badge fc-badge-interactive ${
+                            tx.done ? "fc-badge-gain" : "fc-badge-pending"
+                          }`}
+                          title="Clique para alternar entre Previsto e Realizado"
+                        >
+                          {tx.done ? (
+                            <>
+                              <CheckCircle2 size={11} />
+                              <span>{isGain ? "Recebido" : "Pago"}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock size={11} />
+                              <span>Previsto</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="fc-tx-actions">
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(tx)}
+                          className="fc-tx-action-btn"
                           title="Editar lançamento"
-                          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                          style={{ color: "var(--muted)" }}
                         >
-                          <Edit2 size={15} />
+                          <Edit2 size={14} />
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeletingTx(tx)}
+                          className="fc-tx-action-btn delete"
                           title="Excluir lançamento"
-                          className="p-2 rounded-lg hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 transition-colors"
-                          style={{ color: "var(--muted)" }}
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -697,85 +629,93 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Dashboard com Gráficos: Evolução 6 Meses e Categorias */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Evolução dos Últimos 6 Meses */}
-          <div
-            className="rounded-2xl p-6 border shadow-sm space-y-5"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
-            <div>
-              <h3 className="text-base font-bold tracking-tight">Evolução dos Últimos 6 Meses</h3>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Comparativo mensal de ganhos vs. gastos</p>
+        {/* ANÁLISE COMPARATIVA & DISTRIBUIÇÃO */}
+        <section className="fc-analytics-grid">
+          {/* Histórico dos Últimos 6 Meses */}
+          <div className="fc-card">
+            <div className="fc-card-header">
+              <div>
+                <h3 className="fc-card-title">
+                  <TrendingUp size={17} style={{ color: "var(--accent)" }} />
+                  <span>Evolução dos Últimos 6 Meses</span>
+                </h3>
+                <p className="fc-card-subtitle">Comparativo mensal de Ganhos vs. Gastos</p>
+              </div>
             </div>
 
-            <div className="flex items-end justify-between h-44 pt-6 pb-2 border-b gap-3" style={{ borderColor: "var(--border)" }}>
-              {last6.map((d) => {
-                const inHeight = Math.max(4, Math.round((d.in / maxValLast6) * 120));
-                const outHeight = Math.max(4, Math.round((d.out / maxValLast6) * 120));
-
-                return (
-                  <div key={d.month} className="flex-1 flex flex-col items-center gap-2.5 h-full justify-end">
-                    <div className="flex items-end gap-1.5 h-[120px]">
-                      <div
-                        className="w-3.5 rounded-t-sm transition-all"
-                        style={{ height: `${inHeight}px`, background: "var(--gain)" }}
-                        title={`Ganhos ${d.label}: ${brl(d.in)}`}
-                      />
-                      <div
-                        className="w-3.5 rounded-t-sm transition-all"
-                        style={{ height: `${outHeight}px`, background: "var(--expense)" }}
-                        title={`Gastos ${d.label}: ${brl(d.out)}`}
-                      />
-                    </div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                      {d.label}
-                    </span>
+            <div className="fc-bars-wrapper">
+              {last6Data.map((d) => (
+                <div key={d.month} className="fc-chart-col">
+                  <div className="fc-chart-bars">
+                    <div
+                      className="fc-chart-stick gain"
+                      style={{ height: `${d.inHeight}px` }}
+                      title={`Ganhos ${d.label}: ${brl(d.inVal)}`}
+                    />
+                    <div
+                      className="fc-chart-stick expense"
+                      style={{ height: `${d.outHeight}px` }}
+                      title={`Gastos ${d.label}: ${brl(d.outVal)}`}
+                    />
                   </div>
-                );
-              })}
+                  <span className="fc-chart-label">{d.label}</span>
+                </div>
+              ))}
             </div>
 
-            <div className="flex justify-center gap-6 text-xs font-semibold" style={{ color: "var(--muted)" }}>
+            <div className="flex items-center justify-center gap-6 mt-4 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-sm" style={{ background: "var(--gain)" }} />
+                <span className="w-3 h-3 rounded" style={{ background: "var(--gain)" }} />
                 <span>Ganhos</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-sm" style={{ background: "var(--expense)" }} />
+                <span className="w-3 h-3 rounded" style={{ background: "var(--expense)" }} />
                 <span>Gastos</span>
               </div>
             </div>
           </div>
 
-          {/* Gastos por Categoria */}
-          <div
-            className="rounded-2xl p-6 border shadow-sm space-y-5"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
-            <div>
-              <h3 className="text-base font-bold tracking-tight">Gastos por Categoria</h3>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Distribuição proporcional das despesas do período</p>
+          {/* Distribuição por Categoria */}
+          <div className="fc-card">
+            <div className="fc-card-header">
+              <div>
+                <h3 className="fc-card-title">
+                  <ArrowUpDown size={17} style={{ color: "var(--accent)" }} />
+                  <span>Gastos por Categoria</span>
+                </h3>
+                <p className="fc-card-subtitle">Distribuição proporcional das despesas no período</p>
+              </div>
             </div>
 
-            {categoryStats.length === 0 ? (
-              <div className="text-center py-12 text-xs font-medium" style={{ color: "var(--muted)" }}>
+            {catDistribution.length === 0 ? (
+              <div className="p-8 text-center text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
                 Nenhum gasto registrado neste período.
               </div>
             ) : (
-              <div className="space-y-3.5">
-                {categoryStats.map((item) => (
-                  <div key={item.cat} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span>{item.cat}</span>
-                      <span className="tabular">
-                        {brl(item.amount)} ({item.pct}%)
-                      </span>
+              <div className="space-y-3.5 mt-2">
+                {catDistribution.map((c) => (
+                  <div key={c.cat} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span style={{ color: "var(--text)" }}>{c.cat}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="num-tabular" style={{ color: "var(--text-muted)" }}>
+                          {c.pct}%
+                        </span>
+                        <span className="num-tabular" style={{ color: "var(--expense)" }}>
+                          {brl(c.amount)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--subtle)" }}>
+                    <div
+                      className="w-full h-2 rounded-full overflow-hidden"
+                      style={{ background: "var(--subtle)" }}
+                    >
                       <div
                         className="h-full rounded-full transition-all duration-300"
-                        style={{ width: `${item.pct}%`, background: "var(--expense)" }}
+                        style={{
+                          width: `${c.pct}%`,
+                          background: "var(--expense)",
+                        }}
                       />
                     </div>
                   </div>
@@ -783,74 +723,103 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Tabela Analítica de Acompanhamento */}
-        <section
-          className="rounded-2xl p-6 border shadow-sm space-y-4"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-        >
-          <div>
-            <h3 className="text-base font-bold tracking-tight">Tabela Analítica de Movimentações</h3>
-            <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Visão contábil detalhada de todas as entradas e saídas</p>
+        {/* TABELA ANALÍTICA DE MOVIMENTAÇÕES */}
+        <section className="fc-card" style={{ marginTop: 24 }}>
+          <div className="fc-card-header">
+            <div>
+              <h3 className="fc-card-title">
+                <Calendar size={17} style={{ color: "var(--accent)" }} />
+                <span>Tabela Analítica de Movimentações</span>
+              </h3>
+              <p className="fc-card-subtitle">Visão contábil detalhada de todas as entradas e saídas</p>
+            </div>
           </div>
 
-          <div className="w-full overflow-x-auto border rounded-xl" style={{ borderColor: "var(--border)" }}>
-            <table className="w-full text-left text-xs">
-              <thead className="uppercase tracking-wider border-b" style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--muted)" }}>
+          <div className="fc-table-wrapper">
+            <table className="fc-table">
+              <thead>
                 <tr>
-                  <th className="py-3 px-4 font-bold">Data</th>
-                  <th className="py-3 px-4 font-bold">Descrição</th>
-                  <th className="py-3 px-4 font-bold">Categoria</th>
-                  <th className="py-3 px-4 font-bold">Tipo</th>
-                  <th className="py-3 px-4 font-bold">Status</th>
-                  <th className="py-3 px-4 font-bold text-right">Valor</th>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Tipo</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Valor</th>
+                  <th style={{ textAlign: "center" }}>Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: "var(--border)" }}>
-                {displayedTransactions.length === 0 ? (
+              <tbody>
+                {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
-                      Sem movimentações registradas neste período.
+                    <td colSpan={7} style={{ textAlign: "center", padding: 24, color: "var(--text-muted)" }}>
+                      Sem movimentações registradas para os filtros aplicados.
                     </td>
                   </tr>
                 ) : (
-                  displayedTransactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                      <td className="py-3 px-4 tabular font-mono">{t.date}</td>
-                      <td className="py-3 px-4 font-bold">{t.desc}</td>
-                      <td className="py-3 px-4 font-medium">{t.cat}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                  filteredTransactions.map((t) => {
+                    const isGain = t.type === "in";
+                    return (
+                      <tr key={t.id}>
+                        <td className="num-tabular font-medium">
+                          {t.date.split("-").reverse().join("/")}
+                        </td>
+                        <td className="font-semibold">{t.desc}</td>
+                        <td>
+                          <span className="fc-tx-cat-pill">{t.cat}</span>
+                        </td>
+                        <td>
+                          <span
+                            className="font-bold text-xs"
+                            style={{ color: isGain ? "var(--gain)" : "var(--expense)" }}
+                          >
+                            {isGain ? "Ganho" : "Gasto"}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => toggleDone(t.id, !t.done)}
+                            className={`fc-badge fc-badge-interactive ${
+                              t.done ? "fc-badge-gain" : "fc-badge-pending"
+                            }`}
+                          >
+                            {t.done ? "Realizado" : "Previsto"}
+                          </button>
+                        </td>
+                        <td
+                          className="num-tabular font-bold"
                           style={{
-                            background: t.type === "in" ? "var(--gain-bg)" : "var(--expense-bg)",
-                            color: t.type === "in" ? "var(--gain)" : "var(--expense)",
+                            textAlign: "right",
+                            color: isGain ? "var(--gain)" : "var(--expense)",
                           }}
                         >
-                          {t.type === "in" ? "Entrada" : "Saída"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className="px-2 py-0.5 rounded-full text-[10px] font-bold"
-                          style={{
-                            background: t.done ? "var(--gain-bg)" : "var(--pending-bg)",
-                            color: t.done ? "var(--gain)" : "var(--pending)",
-                          }}
-                        >
-                          {t.done ? (t.type === "in" ? "Recebido" : "Pago") : "Previsto"}
-                        </span>
-                      </td>
-                      <td
-                        className="py-3 px-4 text-right font-extrabold tabular text-sm"
-                        style={{ color: t.type === "in" ? "var(--gain)" : "var(--expense)" }}
-                      >
-                        {t.type === "in" ? "+ " : "− "}
-                        {brl(t.amount)}
-                      </td>
-                    </tr>
-                  ))
+                          {isGain ? "+" : "−"} {brl(t.amount)}
+                        </td>
+                        <td>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(t)}
+                              className="fc-tx-action-btn"
+                              title="Editar"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingTx(t)}
+                              className="fc-tx-action-btn delete"
+                              title="Excluir"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -858,26 +827,54 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      {/* Modais */}
-      <TransactionModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        onSaveSingle={addTransaction}
-        onSaveSeries={addSeries}
-        onUpdateSingle={updateTransaction}
-        onUpdateSeriesFuture={updateSeriesFuture}
-        onUpdateSeriesAll={updateSeriesAll}
-        initialData={editingTx}
-        defaultType={modalDefaultType}
-      />
+      {/* Modal de Criação / Edição de Transação */}
+      {isModalOpen && (
+        <TransactionModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          initialData={editingTx}
+          defaultType={modalDefaultType}
+          currentMonth={currentMonth}
+          onSubmit={async (data) => {
+            if (editingTx) {
+              if (data.updateScope === "future") {
+                await updateSeriesFuture(editingTx.seriesId!, editingTx.seriesIndex || 1, data);
+              } else if (data.updateScope === "all") {
+                await updateSeriesAll(editingTx.seriesId!, data);
+              } else {
+                await updateTransaction(editingTx.id, data);
+              }
+            } else {
+              if (data.repeatMonths && data.repeatMonths > 1) {
+                await addSeries(data, data.repeatMonths);
+              } else {
+                await addTransaction(data);
+              }
+            }
+          }}
+        />
+      )}
 
-      <SeriesDeleteModal
-        isOpen={!!deletingTx}
-        onClose={() => setDeletingTx(null)}
-        tx={deletingTx}
-        onDeleteSingle={deleteTransaction}
-        onDeleteSeries={deleteSeries}
-      />
+      {/* Modal de Exclusão de Série */}
+      {deletingTx && (
+        <SeriesDeleteModal
+          isOpen={!!deletingTx}
+          transaction={deletingTx}
+          onClose={() => setDeletingTx(null)}
+          onDeleteSingle={async () => {
+            await deleteTransaction(deletingTx.id);
+            setDeletingTx(null);
+          }}
+          onDeleteSeries={async () => {
+            if (deletingTx.seriesId) {
+              await deleteSeries(deletingTx.seriesId);
+            } else {
+              await deleteTransaction(deletingTx.id);
+            }
+            setDeletingTx(null);
+          }}
+        />
+      )}
     </div>
   );
 }

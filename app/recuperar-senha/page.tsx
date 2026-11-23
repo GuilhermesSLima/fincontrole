@@ -3,129 +3,166 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { Mail, ArrowLeft, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, ArrowLeft, CheckCircle2, AlertCircle, Send } from "lucide-react";
 
-export default function RecuperarSenhaPage() {
+export default function ForgotPasswordPage() {
   const { resetPassword } = useAuth();
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess(false);
     setLoading(true);
     try {
       await resetPassword(email);
-      setSent(true);
+      setSuccess(true);
     } catch (err: any) {
       const msg: Record<string, string> = {
-        "auth/user-not-found": "E-mail não cadastrado.",
+        "auth/user-not-found": "E-mail não encontrado.",
         "auth/invalid-email": "E-mail inválido.",
       };
-      setError(msg[err.code] || "Não foi possível enviar o e-mail de recuperação.");
+      setError(msg[err.code] || "Erro ao enviar e-mail de recuperação.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bg)" }}>
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-2xl font-bold" style={{ color: "var(--text)" }}>FinControle</div>
-          <div className="text-sm mt-1" style={{ color: "var(--muted)" }}>Recuperação de Acesso</div>
+    <div
+      className="min-h-screen flex items-center justify-center p-4 sm:p-6"
+      style={{ background: "var(--bg)" }}
+    >
+      <div className="w-full max-w-[420px] space-y-6">
+        {/* Cabeçalho de Marca */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-2.5">
+            <span
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-md tracking-tight"
+              style={{ background: "var(--accent)" }}
+            >
+              FC
+            </span>
+            <span className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>
+              FinControle
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+            Recuperação segura de acesso à conta
+          </p>
         </div>
 
+        {/* Card do Formulário */}
         <div
-          className="rounded-lg p-8 border"
-          style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-md)" }}
+          className="fc-card"
+          style={{
+            padding: "32px 28px",
+            boxShadow: "var(--shadow-lg)",
+            borderRadius: "var(--radius-xl)",
+          }}
         >
-          {sent ? (
-            <div className="text-center space-y-4">
-              <div
-                className="w-12 h-12 rounded-full mx-auto flex items-center justify-center"
-                style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
-              >
-                <CheckCircle2 size={24} />
+          <div className="mb-6">
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+              Recuperar senha
+            </h1>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+              Digite seu e-mail para receber as instruções de redefinição
+            </p>
+          </div>
+
+          {error && (
+            <div
+              className="flex items-center gap-2.5 p-3 rounded-lg text-xs font-semibold mb-4"
+              style={{
+                background: "var(--expense-bg)",
+                color: "var(--expense)",
+                border: "1px solid var(--expense-border)",
+              }}
+            >
+              <AlertCircle size={16} className="shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {success ? (
+            <div
+              className="p-4 rounded-xl border text-center space-y-3"
+              style={{
+                background: "var(--gain-bg)",
+                borderColor: "var(--gain-border)",
+                color: "var(--gain-text)",
+              }}
+            >
+              <CheckCircle2 size={32} className="mx-auto" style={{ color: "var(--gain)" }} />
+              <div>
+                <p className="text-sm font-bold">E-mail de recuperação enviado!</p>
+                <p className="text-xs mt-1">
+                  Verifique sua caixa de entrada e siga o link enviado para cadastrar uma nova senha.
+                </p>
               </div>
-              <h1 className="text-lg font-bold" style={{ color: "var(--text)" }}>E-mail enviado!</h1>
-              <p className="text-sm" style={{ color: "var(--muted)" }}>
-                Enviamos instruções de redefinição de senha para <strong>{email}</strong>. Verifique sua caixa de entrada e spam.
-              </p>
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center gap-2 w-full py-2.5 mt-2 rounded-md font-semibold text-sm text-white transition-opacity hover:opacity-90 shadow-sm"
-                style={{ background: "var(--accent)" }}
+                className="fc-btn fc-btn-primary fc-btn-sm inline-flex mt-2"
               >
-                Voltar ao login
+                Voltar para o Login
               </Link>
             </div>
           ) : (
-            <>
-              <h1 className="text-xl font-bold mb-1" style={{ color: "var(--text)" }}>Redefinir senha</h1>
-              <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-                Digite seu e-mail cadastrado para receber o link de redefinição.
-              </p>
-
-              {error && (
-                <div
-                  className="flex items-center gap-2 p-3 rounded-md text-sm mb-4"
-                  style={{ background: "var(--expense-bg)", color: "var(--expense)", border: "1px solid var(--expense-border)" }}
-                >
-                  <AlertCircle size={15} /> {error}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="fc-label">E-mail Cadastrado</label>
+                <div className="relative">
+                  <Mail
+                    size={16}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--text-muted)" }}
+                  />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="seu@email.com"
+                    className="fc-input"
+                    style={{ paddingLeft: 40 }}
+                  />
                 </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                    E-mail
-                  </label>
-                  <div className="relative">
-                    <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      placeholder="seu@email.com"
-                      className="w-full pl-9 pr-3 py-2.5 text-sm rounded-md border outline-none transition-all"
-                      style={{
-                        background: "var(--subtle)",
-                        borderColor: "var(--border)",
-                        color: "var(--text)",
-                      }}
-                      onFocus={(e) => (e.target.style.borderColor = "var(--border-focus)")}
-                      onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md font-semibold text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-sm"
-                  style={{ background: "var(--accent)" }}
-                >
-                  {loading ? "Enviando…" : (
-                    <>Enviar link <ArrowRight size={14} /></>
-                  )}
-                </button>
-              </form>
-
-              <div className="text-center mt-6">
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-75"
-                  style={{ color: "var(--accent)" }}
-                >
-                  <ArrowLeft size={14} /> Voltar para o login
-                </Link>
               </div>
-            </>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="fc-btn fc-btn-primary w-full"
+                style={{ padding: "12px", fontSize: "0.9rem", marginTop: 8 }}
+              >
+                {loading ? (
+                  <span>Enviando link…</span>
+                ) : (
+                  <>
+                    <span>Enviar instruções</span>
+                    <Send size={15} />
+                  </>
+                )}
+              </button>
+            </form>
           )}
+
+          <div
+            className="mt-6 pt-5 border-t text-center text-xs font-medium"
+            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+          >
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 font-bold hover:underline"
+              style={{ color: "var(--accent)" }}
+            >
+              <ArrowLeft size={14} />
+              <span>Voltar para o Login</span>
+            </Link>
+          </div>
         </div>
       </div>
     </div>

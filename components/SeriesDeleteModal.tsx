@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Transaction } from "@/types";
-import { X, AlertTriangle } from "lucide-react";
+import { X, AlertTriangle, Trash2 } from "lucide-react";
 
 interface SeriesDeleteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  tx: Transaction | null;
+  transaction?: Transaction | null;
+  tx?: Transaction | null;
   onDeleteSingle: (id: string) => Promise<void>;
   onDeleteSeries: (seriesId: string) => Promise<void>;
 }
@@ -15,24 +16,26 @@ interface SeriesDeleteModalProps {
 export function SeriesDeleteModal({
   isOpen,
   onClose,
-  tx,
+  transaction,
+  tx: propTx,
   onDeleteSingle,
   onDeleteSeries,
 }: SeriesDeleteModalProps) {
+  const currentTx = transaction || propTx;
   const [scope, setScope] = useState<"single" | "all">("single");
   const [loading, setLoading] = useState(false);
 
-  if (!isOpen || !tx) return null;
+  if (!isOpen || !currentTx) return null;
 
-  const isSeries = !!tx.seriesId;
+  const isSeries = !!currentTx.seriesId;
 
   const handleConfirm = async () => {
     setLoading(true);
     try {
-      if (isSeries && scope === "all" && tx.seriesId) {
-        await onDeleteSeries(tx.seriesId);
+      if (isSeries && scope === "all" && currentTx.seriesId) {
+        await onDeleteSeries(currentTx.seriesId);
       } else {
-        await onDeleteSingle(tx.id);
+        await onDeleteSingle(currentTx.id);
       }
       onClose();
     } finally {
@@ -41,75 +44,77 @@ export function SeriesDeleteModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div
-        className="w-full max-w-sm rounded-xl border modal-animate overflow-hidden shadow-2xl p-5 space-y-4"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-      >
-        <div className="flex items-start justify-between">
+    <div className="fc-modal-overlay">
+      <div className="fc-modal-sheet" style={{ maxWidth: 420 }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
           <div className="flex items-center gap-2" style={{ color: "var(--expense)" }}>
-            <AlertTriangle size={20} />
+            <AlertTriangle size={18} />
             <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Excluir lançamento</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-md" style={{ color: "var(--muted)" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-md text-gray-400 hover:text-gray-600"
+          >
             <X size={16} />
           </button>
         </div>
 
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Tem certeza de que deseja remover <strong>&quot;{tx.desc}&quot;</strong>?
-        </p>
+        {/* Conteúdo */}
+        <div className="p-5 space-y-4">
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Tem certeza de que deseja remover <strong>&quot;{currentTx.desc}&quot;</strong>?
+          </p>
 
-        {isSeries && (
-          <div className="p-3 rounded-lg border space-y-2 text-xs" style={{ background: "var(--subtle)", borderColor: "var(--border)" }}>
-            <div className="font-semibold" style={{ color: "var(--text)" }}>
-              Este lançamento faz parte de uma série ({tx.seriesIndex}/{tx.seriesTotal})
+          {isSeries && (
+            <div
+              className="p-3.5 rounded-xl border space-y-2 text-xs"
+              style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
+            >
+              <div className="font-bold" style={{ color: "var(--text)" }}>
+                Este lançamento faz parte de uma série ({currentTx.seriesIndex || 1}/{currentTx.seriesTotal || 1})
+              </div>
+              <div className="space-y-1.5 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="delScope"
+                    checked={scope === "single"}
+                    onChange={() => setScope("single")}
+                  />
+                  <span>Excluir apenas esta parcela</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-bold" style={{ color: "var(--expense)" }}>
+                  <input
+                    type="radio"
+                    name="delScope"
+                    checked={scope === "all"}
+                    onChange={() => setScope("all")}
+                  />
+                  <span>Excluir toda a série ({currentTx.seriesTotal || 1} parcelas)</span>
+                </label>
+              </div>
             </div>
-            <div className="space-y-1.5 pt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="delScope"
-                  checked={scope === "single"}
-                  onChange={() => setScope("single")}
-                  className="accent-red-600"
-                />
-                <span>Excluir apenas esta parcela</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="delScope"
-                  checked={scope === "all"}
-                  onChange={() => setScope("all")}
-                  className="accent-red-600"
-                />
-                <span className="font-semibold text-red-600 dark:text-red-400">
-                  Excluir toda a série ({tx.seriesTotal} parcelas)
-                </span>
-              </label>
-            </div>
+          )}
+
+          <div className="flex gap-2 pt-2 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="fc-btn fc-btn-secondary fc-btn-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={loading}
+              className="fc-btn fc-btn-expense fc-btn-sm font-bold"
+            >
+              {loading ? "Excluindo…" : "Confirmar Exclusão"}
+            </button>
           </div>
-        )}
-
-        <div className="flex gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-2 rounded-md text-xs font-semibold border transition-colors hover:opacity-80"
-            style={{ borderColor: "var(--border)", color: "var(--text)" }}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={loading}
-            className="flex-1 py-2 rounded-md text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ background: "var(--expense)" }}
-          >
-            {loading ? "Excluindo…" : "Confirmar exclusão"}
-          </button>
         </div>
       </div>
     </div>

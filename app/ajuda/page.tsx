@@ -18,7 +18,7 @@ import {
 export default function AjudaPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { addTransaction, addSeries } = useTransactions();
+  const { addTransaction } = useTransactions();
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
 
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -32,9 +32,14 @@ export default function AjudaPage() {
   if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }} />
-          <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>Carregando…</span>
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin"
+            style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
+          />
+          <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+            Carregando Ajuda…
+          </span>
         </div>
       </div>
     );
@@ -67,97 +72,102 @@ export default function AjudaPage() {
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--text)" }}>
       <Navbar onOpenNewTx={() => setIsTxModalOpen(true)} />
 
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 md:px-8 py-6 space-y-6">
+      <main className="fc-container space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs uppercase tracking-wider font-bold" style={{ color: "var(--accent)" }}>
               Manual do Sistema
             </span>
-            <span className="w-1 h-1 rounded-full bg-slate-400" />
-            <span className="text-xs" style={{ color: "var(--muted)" }}>Diretrizes e Boas Práticas Contábeis</span>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--border-hover)" }} />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Diretrizes e Boas Práticas Contábeis
+            </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Ajuda &amp; Guia Metodológico</h1>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>
+            Ajuda &amp; Guia Metodológico
+          </h1>
+          <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--text-muted)" }}>
             Aprenda a tirar o máximo proveito do FinControle e manter seu patrimônio protegido.
           </p>
         </div>
 
         {/* 3 Pilares da Metodologia */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div
-            className="rounded-xl p-5 border shadow-sm space-y-2"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
+          <div className="fc-card space-y-2">
             <div className="flex items-center gap-2 font-bold text-sm" style={{ color: "var(--gain)" }}>
               <CheckCircle2 size={18} />
               <span>1. Segregação Absoluta</span>
             </div>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
               Salário, auxílio-transporte, despesas operacionais e reservas têm destinos próprios e nunca são misturados.
             </p>
           </div>
 
-          <div
-            className="rounded-xl p-5 border shadow-sm space-y-2"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
+          <div className="fc-card space-y-2">
             <div className="flex items-center gap-2 font-bold text-sm" style={{ color: "var(--accent)" }}>
               <ShieldCheck size={18} />
-              <span>2. Regra do Fundo Blindado</span>
+              <span>2. Fundo Intocável</span>
             </div>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              O fundo de emergência não financia metas de consumo ou lazer. Ele protege seu padrão de vida contra imprevistos.
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              A reserva de emergência tem prioridade máxima e deve ser preservada contra gastos supérfluos.
             </p>
           </div>
 
-          <div
-            className="rounded-xl p-5 border shadow-sm space-y-2"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
+          <div className="fc-card space-y-2">
             <div className="flex items-center gap-2 font-bold text-sm" style={{ color: "var(--pending)" }}>
               <Sparkles size={18} />
-              <span>3. Rigor com Estimativas</span>
+              <span>3. Rigor nos Status</span>
             </div>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Estimativa não é dinheiro em conta. Só considere um valor realizado quando houver compensação bancária.
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Só considere dinheiro como real quando ele for efetivamente liquidado no extrato bancário.
             </p>
           </div>
         </div>
 
-        {/* FAQ em Acordeon */}
-        <section
-          className="rounded-xl p-5 border shadow-sm space-y-4"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-        >
-          <div className="flex items-center gap-2">
-            <BookOpen size={18} style={{ color: "var(--accent)" }} />
-            <h2 className="text-sm font-bold">Perguntas Frequentes (FAQ)</h2>
+        {/* Perguntas Frequentes Accordion */}
+        <div className="fc-card space-y-4">
+          <div className="fc-card-header">
+            <h2 className="fc-card-title">
+              <BookOpen size={18} style={{ color: "var(--accent)" }} />
+              <span>Perguntas Frequentes (FAQ)</span>
+            </h2>
           </div>
 
-          <div className="space-y-2">
-            {faqs.map((faq, idx) => {
-              const isOpen = openFaq === idx;
+          <div className="space-y-3">
+            {faqs.map((faq, index) => {
+              const isOpen = openFaq === index;
               return (
                 <div
-                  key={idx}
-                  className="rounded-lg border overflow-hidden transition-colors"
-                  style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
+                  key={index}
+                  className="rounded-xl border overflow-hidden transition-all"
+                  style={{
+                    background: "var(--surface)",
+                    borderColor: isOpen ? "var(--accent)" : "var(--border)",
+                  }}
                 >
                   <button
                     type="button"
-                    onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    className="w-full text-left p-4 font-semibold text-xs flex items-center justify-between gap-3"
+                    onClick={() => setOpenFaq(isOpen ? null : index)}
+                    className="w-full text-left p-4 flex items-center justify-between font-bold text-sm transition-colors"
                     style={{ color: "var(--text)" }}
                   >
                     <span>{faq.q}</span>
                     <ChevronDown
-                      size={16}
+                      size={18}
                       className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-                      style={{ color: "var(--muted)" }}
+                      style={{ color: "var(--text-muted)" }}
                     />
                   </button>
+
                   {isOpen && (
-                    <div className="px-4 pb-4 pt-1 text-xs leading-relaxed border-t" style={{ color: "var(--muted)", borderColor: "var(--border)" }}>
+                    <div
+                      className="px-4 pb-4 pt-1 text-xs leading-relaxed border-t"
+                      style={{
+                        borderColor: "var(--border)",
+                        color: "var(--text-muted)",
+                        background: "var(--subtle)",
+                      }}
+                    >
                       {faq.a}
                     </div>
                   )}
@@ -165,15 +175,19 @@ export default function AjudaPage() {
               );
             })}
           </div>
-        </section>
+        </div>
       </main>
 
-      <TransactionModal
-        isOpen={isTxModalOpen}
-        onClose={() => setIsTxModalOpen(false)}
-        onSaveSingle={addTransaction}
-        onSaveSeries={addSeries}
-      />
+      {/* Modal de Transação */}
+      {isTxModalOpen && (
+        <TransactionModal
+          isOpen={isTxModalOpen}
+          onClose={() => setIsTxModalOpen(false)}
+          onSubmit={async (data) => {
+            await addTransaction(data);
+          }}
+        />
+      )}
     </div>
   );
 }

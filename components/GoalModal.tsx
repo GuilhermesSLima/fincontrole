@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { Goal } from "@/types";
 import { parseBRL } from "@/lib/utils";
-import { X, AlertCircle } from "lucide-react";
+import { X, Target, ShieldCheck, AlertCircle } from "lucide-react";
 
 interface GoalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (goal: Omit<Goal, "id" | "userId" | "createdAt" | "updatedAt">) => Promise<void>;
+  onSubmit?: (goal: Omit<Goal, "id" | "userId" | "createdAt" | "updatedAt">) => Promise<void>;
+  onSave?: (goal: Omit<Goal, "id" | "userId" | "createdAt" | "updatedAt">) => Promise<void>;
   onUpdate?: (id: string, data: Partial<Goal>) => Promise<void>;
   initialData?: Goal | null;
 }
@@ -16,6 +17,7 @@ interface GoalModalProps {
 export function GoalModal({
   isOpen,
   onClose,
+  onSubmit,
   onSave,
   onUpdate,
   initialData,
@@ -25,9 +27,8 @@ export function GoalModal({
   const [targetStr, setTargetStr] = useState("");
   const [currentStr, setCurrentStr] = useState("");
   const [monthlyStr, setMonthlyStr] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [targetDate, setTargetDate] = useState("");
   const [type, setType] = useState<"emergency" | "goal">("goal");
-  const [status, setStatus] = useState<"active" | "achieved" | "paused">("active");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -38,25 +39,23 @@ export function GoalModal({
       setTargetStr(initialData.targetAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 }));
       setCurrentStr(initialData.currentAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 }));
       setMonthlyStr(initialData.monthlyContribution ? initialData.monthlyContribution.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
-      setDeadline(initialData.deadline || "");
+      setTargetDate(initialData.deadline || "");
       setType(initialData.type);
-      setStatus(initialData.status);
     } else {
       setName("");
       setDesc("");
       setTargetStr("");
       setCurrentStr("0,00");
       setMonthlyStr("");
-      setDeadline("");
+      setTargetDate("");
       setType("goal");
-      setStatus("active");
     }
     setError("");
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
 
-  const isEditing = !!initialData;
+  const isEditing = !!initialData && !!initialData.id;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,14 +82,16 @@ export function GoalModal({
         targetAmount,
         currentAmount,
         monthlyContribution,
-        deadline: deadline || undefined,
+        deadline: targetDate || undefined,
         type,
-        status: currentAmount >= targetAmount ? ("achieved" as const) : status,
+        status: (currentAmount >= targetAmount ? "achieved" : "active") as "active" | "achieved" | "paused",
       };
 
-      if (isEditing && initialData && onUpdate) {
+      if (onSubmit) {
+        await onSubmit(payload);
+      } else if (isEditing && initialData?.id && onUpdate) {
         await onUpdate(initialData.id, payload);
-      } else {
+      } else if (onSave) {
         await onSave(payload);
       }
       onClose();
@@ -102,160 +103,154 @@ export function GoalModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div
-        className="w-full max-w-md rounded-xl border modal-animate overflow-hidden shadow-2xl"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-      >
+    <div className="fc-modal-overlay">
+      <div className="fc-modal-sheet" style={{ maxWidth: 460 }}>
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
-          <h2 className="text-base font-bold tracking-tight" style={{ color: "var(--text)" }}>
-            {isEditing ? "Editar Objetivo" : "Novo Objetivo ou Reserva"}
-          </h2>
-          <button onClick={onClose} className="p-1 rounded-md" style={{ color: "var(--muted)" }}>
+          <div className="flex items-center gap-2">
+            {type === "emergency" ? (
+              <ShieldCheck size={20} style={{ color: "var(--accent)" }} />
+            ) : (
+              <Target size={20} style={{ color: "var(--gain)" }} />
+            )}
+            <h2 className="text-base font-bold tracking-tight" style={{ color: "var(--text)" }}>
+              {isEditing ? "Editar Objetivo" : "Novo Objetivo Financeiro"}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-md text-gray-400 hover:text-gray-600"
+          >
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
           {error && (
             <div
-              className="flex items-center gap-2 p-2.5 rounded-md text-xs"
-              style={{ background: "var(--expense-bg)", color: "var(--expense)", border: "1px solid var(--expense-border)" }}
+              className="flex items-center gap-2 p-3 rounded-lg text-xs font-semibold"
+              style={{
+                background: "var(--expense-bg)",
+                color: "var(--expense)",
+                border: "1px solid var(--expense-border)",
+              }}
             >
-              <AlertCircle size={14} /> {error}
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          {/* Tipo de Meta */}
-          <div className="grid grid-cols-2 p-1 rounded-lg border text-xs font-semibold" style={{ background: "var(--subtle)", borderColor: "var(--border)" }}>
-            <button
-              type="button"
-              onClick={() => setType("goal")}
-              className={`py-2 rounded-md transition-all ${type === "goal" ? "shadow-sm font-bold" : "opacity-60"}`}
-              style={{
-                background: type === "goal" ? "var(--gain-bg)" : "transparent",
-                color: type === "goal" ? "var(--gain)" : "var(--muted)",
-                border: type === "goal" ? "1px solid var(--gain-border)" : "1px solid transparent",
-              }}
+          {/* Seletor Tipo: Fundo de Emergência vs Meta Principal */}
+          {!isEditing && (
+            <div
+              className="grid grid-cols-2 p-1 rounded-xl border text-xs font-bold"
+              style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
             >
-              Meta Principal / Específica
-            </button>
-            <button
-              type="button"
-              onClick={() => setType("emergency")}
-              className={`py-2 rounded-md transition-all ${type === "emergency" ? "shadow-sm font-bold" : "opacity-60"}`}
-              style={{
-                background: type === "emergency" ? "var(--accent-bg)" : "transparent",
-                color: type === "emergency" ? "var(--accent)" : "var(--muted)",
-                border: type === "emergency" ? "1px solid var(--border)" : "1px solid transparent",
-              }}
-            >
-              Fundo de Emergência
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setType("goal")}
+                className={`py-2 rounded-lg transition-all ${
+                  type === "goal" ? "shadow-sm font-black" : "opacity-60 hover:opacity-100"
+                }`}
+                style={{
+                  background: type === "goal" ? "var(--gain-bg)" : "transparent",
+                  color: type === "goal" ? "var(--gain)" : "var(--text-muted)",
+                  border: type === "goal" ? "1px solid var(--gain-border)" : "1px solid transparent",
+                }}
+              >
+                🎯 Meta Principal
+              </button>
+              <button
+                type="button"
+                onClick={() => setType("emergency")}
+                className={`py-2 rounded-lg transition-all ${
+                  type === "emergency" ? "shadow-sm font-black" : "opacity-60 hover:opacity-100"
+                }`}
+                style={{
+                  background: type === "emergency" ? "var(--accent-bg)" : "transparent",
+                  color: type === "emergency" ? "var(--accent)" : "var(--text-muted)",
+                  border: type === "emergency" ? "1px solid var(--accent-border)" : "1px solid transparent",
+                }}
+              >
+                🛡️ Fundo Emergência
+              </button>
+            </div>
+          )}
 
-          {/* Nome */}
           <div>
-            <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-              Nome do Objetivo
-            </label>
+            <label className="fc-label">Nome do Objetivo</label>
             <input
               type="text"
+              required
+              placeholder={type === "emergency" ? "Ex.: Reserva de Emergência (6 meses)" : "Ex.: Viagem de Férias, Carro"}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={type === "emergency" ? "Fundo de Emergência (6 meses)" : "Ex.: Viagem de Formatura, Carro…"}
-              required
-              className="w-full px-3 py-2 text-sm rounded-md border outline-none"
-              style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+              className="fc-input font-semibold"
             />
           </div>
 
-          {/* Descrição */}
-          <div>
-            <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-              Propósito / Regras
-            </label>
-            <input
-              type="text"
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              placeholder="Ex.: Isolado em CDB com liquidez diária"
-              className="w-full px-3 py-2 text-sm rounded-md border outline-none"
-              style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
-            />
-          </div>
-
-          {/* Valores: Alvo e Acumulado Atual */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                Valor Alvo (R$)
-              </label>
+              <label className="fc-label">Valor Alvo (R$)</label>
               <input
                 type="text"
-                inputMode="decimal"
+                required
+                placeholder="0,00"
                 value={targetStr}
                 onChange={(e) => setTargetStr(e.target.value)}
-                placeholder="0,00"
-                required
-                className="w-full px-3 py-2 text-sm rounded-md border outline-none font-semibold tabular"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+                className="fc-input font-bold"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                Já Guardado (R$)
-              </label>
+              <label className="fc-label">Já Acumulado (R$)</label>
               <input
                 type="text"
-                inputMode="decimal"
+                placeholder="0,00"
                 value={currentStr}
                 onChange={(e) => setCurrentStr(e.target.value)}
-                placeholder="0,00"
-                className="w-full px-3 py-2 text-sm rounded-md border outline-none font-semibold tabular"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+                className="fc-input font-bold"
               />
             </div>
           </div>
 
-          {/* Aporte Mensal e Prazo */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                Aporte Mensal (R$)
-              </label>
+              <label className="fc-label">Aporte Mensal Planejado (R$)</label>
               <input
                 type="text"
-                inputMode="decimal"
+                placeholder="0,00"
                 value={monthlyStr}
                 onChange={(e) => setMonthlyStr(e.target.value)}
-                placeholder="Ex.: 250,00"
-                className="w-full px-3 py-2 text-sm rounded-md border outline-none font-semibold tabular"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+                className="fc-input"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                Prazo Estimado (Mês/Ano)
-              </label>
+              <label className="fc-label">Data-Alvo / Prazo (Opcional)</label>
               <input
-                type="month"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-md border outline-none"
-                style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+                className="fc-input"
               />
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="fc-btn fc-btn-secondary fc-btn-sm"
+            >
+              Cancelar
+            </button>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-md font-semibold text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-sm"
-              style={{ background: "var(--accent)" }}
+              className="fc-btn fc-btn-primary fc-btn-sm font-bold"
             >
-              {loading ? "Salvando…" : isEditing ? "Salvar alterações" : "Criar Objetivo"}
+              {loading ? "Salvando…" : isEditing ? "Salvar Alterações" : "Criar Objetivo"}
             </button>
           </div>
         </form>
