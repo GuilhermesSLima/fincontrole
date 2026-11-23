@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, AlertCircle, ShieldCheck } from "lucide-react";
 
 export default function CadastroPage() {
   const { signUp } = useAuth();
@@ -20,8 +20,14 @@ export default function CadastroPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (password !== confirm) { setError("As senhas não coincidem."); return; }
-    if (password.length < 6) { setError("A senha deve ter ao menos 6 caracteres."); return; }
+    if (password !== confirm) {
+      setError("As senhas informadas não coincidem.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
     setLoading(true);
     try {
       await signUp(email, password, name);
@@ -30,7 +36,7 @@ export default function CadastroPage() {
       const msg: Record<string, string> = {
         "auth/email-already-in-use": "Este e-mail já está cadastrado.",
         "auth/invalid-email": "E-mail inválido.",
-        "auth/weak-password": "Senha muito fraca. Use ao menos 6 caracteres.",
+        "auth/weak-password": "Senha muito fraca. Use no mínimo 6 caracteres.",
       };
       setError(msg[err.code] || "Erro ao criar conta. Tente novamente.");
     } finally {
@@ -38,115 +44,234 @@ export default function CadastroPage() {
     }
   };
 
-  const inputStyle = {
-    background: "var(--subtle)",
-    borderColor: "var(--border)",
-    color: "var(--text)",
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bg)" }}>
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-2xl font-bold" style={{ color: "var(--text)" }}>FinControle</div>
-          <div className="text-sm mt-1" style={{ color: "var(--muted)" }}>Criar uma conta gratuita</div>
+    <div
+      className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8"
+      style={{ background: "var(--bg)" }}
+    >
+      <div className="w-full max-w-[440px] space-y-6">
+        {/* Cabeçalho de Marca */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-2.5">
+            <span
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-md tracking-tight"
+              style={{ background: "var(--accent)", color: "#ffffff" }}
+            >
+              FC
+            </span>
+            <span className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+              FinControle
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm font-medium" style={{ color: "var(--muted)" }}>
+            Crie sua conta para começar seu planejamento financeiro
+          </p>
         </div>
 
+        {/* Card do Formulário */}
         <div
-          className="rounded-lg p-8 border"
-          style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-md)" }}
+          className="rounded-2xl p-6 sm:p-8 border shadow-lg backdrop-blur-sm space-y-6"
+          style={{
+            background: "var(--surface)",
+            borderColor: "var(--border)",
+            boxShadow: "var(--shadow-md)",
+          }}
         >
-          <h1 className="text-xl font-bold mb-1" style={{ color: "var(--text)" }}>Criar conta</h1>
-          <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>Preencha os dados abaixo para começar</p>
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+              Nova conta
+            </h1>
+            <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--muted)" }}>
+              Preencha os campos abaixo para criar seu perfil
+            </p>
+          </div>
 
           {error && (
             <div
-              className="flex items-center gap-2 p-3 rounded-md text-sm mb-4"
-              style={{ background: "var(--expense-bg)", color: "var(--expense)", border: "1px solid var(--expense-border)" }}
+              className="flex items-center gap-2.5 p-3 rounded-lg text-xs font-semibold"
+              style={{
+                background: "var(--expense-bg)",
+                color: "var(--expense)",
+                border: "1px solid var(--expense-border)",
+              }}
             >
-              <AlertCircle size={15} /> {error}
+              <AlertCircle size={16} className="shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {[
-              { label: "Nome completo", value: name, set: setName, type: "text", icon: User, placeholder: "Seu nome" },
-              { label: "E-mail", value: email, set: setEmail, type: "email", icon: Mail, placeholder: "seu@email.com" },
-            ].map(({ label, value, set, type, icon: Icon, placeholder }) => (
-              <div key={label}>
-                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  {label}
-                </label>
-                <div className="relative">
-                  <Icon size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
-                  <input
-                    type={type}
-                    value={value}
-                    onChange={(e) => set(e.target.value)}
-                    required
-                    placeholder={placeholder}
-                    className="w-full pl-9 pr-3 py-2.5 text-sm rounded-md border outline-none transition-all"
-                    style={inputStyle}
-                    onFocus={(e) => (e.target.style.borderColor = "var(--border-focus)")}
-                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-                  />
-                </div>
+            <div>
+              <label
+                className="block text-xs font-bold uppercase tracking-wider mb-1.5"
+                style={{ color: "var(--muted)" }}
+              >
+                Nome Completo
+              </label>
+              <div className="relative">
+                <User
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                  style={{ color: "var(--muted)" }}
+                />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder="Seu nome"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border outline-none transition-all font-medium"
+                  style={{
+                    background: "var(--subtle)",
+                    borderColor: "var(--border)",
+                    color: "var(--text)",
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "var(--border-focus)")}
+                  onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                />
               </div>
-            ))}
+            </div>
 
-            {[
-              { label: "Senha", value: password, set: setPassword, placeholder: "Mínimo 6 caracteres" },
-              { label: "Confirmar senha", value: confirm, set: setConfirm, placeholder: "Repita a senha" },
-            ].map(({ label, value, set, placeholder }) => (
-              <div key={label}>
-                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  {label}
+            <div>
+              <label
+                className="block text-xs font-bold uppercase tracking-wider mb-1.5"
+                style={{ color: "var(--muted)" }}
+              >
+                E-mail
+              </label>
+              <div className="relative">
+                <Mail
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2"
+                  style={{ color: "var(--muted)" }}
+                />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="seu@email.com"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border outline-none transition-all font-medium"
+                  style={{
+                    background: "var(--subtle)",
+                    borderColor: "var(--border)",
+                    color: "var(--text)",
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "var(--border-focus)")}
+                  onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label
+                  className="block text-xs font-bold uppercase tracking-wider mb-1.5"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Senha
                 </label>
                 <div className="relative">
-                  <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+                  <Lock
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--muted)" }}
+                  />
                   <input
                     type={showPwd ? "text" : "password"}
-                    value={value}
-                    onChange={(e) => set(e.target.value)}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
-                    placeholder={placeholder}
-                    className="w-full pl-9 pr-10 py-2.5 text-sm rounded-md border outline-none transition-all"
-                    style={inputStyle}
+                    placeholder="Mín. 6 dígitos"
+                    className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border outline-none transition-all font-medium"
+                    style={{
+                      background: "var(--subtle)",
+                      borderColor: "var(--border)",
+                      color: "var(--text)",
+                    }}
                     onFocus={(e) => (e.target.style.borderColor = "var(--border-focus)")}
                     onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
                   />
                 </div>
               </div>
-            ))}
+
+              <div>
+                <label
+                  className="block text-xs font-bold uppercase tracking-wider mb-1.5"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Confirmar
+                </label>
+                <div className="relative">
+                  <Lock
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--muted)" }}
+                  />
+                  <input
+                    type={showPwd ? "text" : "password"}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    required
+                    placeholder="Repita a senha"
+                    className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border outline-none transition-all font-medium"
+                    style={{
+                      background: "var(--subtle)",
+                      borderColor: "var(--border)",
+                      color: "var(--text)",
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--border-focus)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                  />
+                </div>
+              </div>
+            </div>
 
             <button
               type="button"
               onClick={() => setShowPwd(!showPwd)}
-              className="text-xs flex items-center gap-1 transition-opacity hover:opacity-70"
+              className="text-xs font-medium flex items-center gap-1.5 pt-1"
               style={{ color: "var(--muted)" }}
             >
-              {showPwd ? <EyeOff size={12} /> : <Eye size={12} />}
-              {showPwd ? "Ocultar senhas" : "Mostrar senhas"}
+              {showPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+              <span>{showPwd ? "Ocultar senhas" : "Ver senhas"}</span>
             </button>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md font-semibold text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-sm"
+              className="w-full h-11 flex items-center justify-center gap-2 rounded-lg font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-60 shadow-md mt-2"
               style={{ background: "var(--accent)" }}
             >
-              {loading ? "Criando conta…" : (
-                <>Criar conta <ArrowRight size={14} /></>
+              {loading ? (
+                <span>Criando sua conta…</span>
+              ) : (
+                <>
+                  <span>Concluir Cadastro</span>
+                  <ArrowRight size={16} />
+                </>
               )}
             </button>
           </form>
 
-          <p className="text-center text-sm mt-6" style={{ color: "var(--muted)" }}>
-            Já tem uma conta?{" "}
-            <Link href="/login" className="font-semibold" style={{ color: "var(--accent)" }}>
-              Entrar
+          <div
+            className="pt-4 border-t text-center text-xs sm:text-sm font-medium"
+            style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+          >
+            Já possui cadastro?{" "}
+            <Link
+              href="/login"
+              className="font-bold transition-opacity hover:opacity-80"
+              style={{ color: "var(--accent)" }}
+            >
+              Fazer login
             </Link>
-          </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+          <ShieldCheck size={14} style={{ color: "var(--gain)" }} />
+          <span>Isolamento seguro garantido pelo Cloud Firestore</span>
         </div>
       </div>
     </div>

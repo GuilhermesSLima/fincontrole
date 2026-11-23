@@ -7,7 +7,7 @@ import { useTransactions } from "@/lib/hooks/useTransactions";
 import { Navbar } from "@/components/Navbar";
 import { TransactionModal } from "@/components/TransactionModal";
 import { SeriesDeleteModal } from "@/components/SeriesDeleteModal";
-import { Transaction } from "@/types";
+import { Transaction, TransactionType } from "@/types";
 import {
   brl,
   ym,
@@ -31,6 +31,7 @@ import {
   Calendar,
   Layers,
   ArrowUpDown,
+  Search,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -51,12 +52,20 @@ export default function DashboardPage() {
     setCustomEnd(current + "-28");
   }, []);
 
+  // Redirecionamento seguro no useEffect para evitar erro do React Router em render
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/login");
+    }
+  }, [user, authLoading, router]);
+
   // Filtros de Lançamento
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out" | "pending" | "done">("all");
   const [search, setSearch] = useState("");
 
   // Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalDefaultType, setModalDefaultType] = useState<TransactionType>("out");
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
 
@@ -173,21 +182,31 @@ export default function DashboardPage() {
       .sort((a, b) => b.amount - a.amount);
   }, [periodTransactions, summary.totalOut]);
 
-  if (authLoading) {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
-        <span className="text-sm" style={{ color: "var(--muted)" }}>Carregando…</span>
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin"
+            style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
+          />
+          <span className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+            Carregando FinControle…
+          </span>
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    router.replace("/login");
-    return null;
-  }
+  const handleOpenAdd = (type: TransactionType = "out") => {
+    setEditingTx(null);
+    setModalDefaultType(type);
+    setIsModalOpen(true);
+  };
 
   const handleOpenEdit = (tx: Transaction) => {
     setEditingTx(tx);
+    setModalDefaultType(tx.type);
     setIsModalOpen(true);
   };
 
@@ -198,13 +217,13 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--text)" }}>
-      <Navbar onOpenNewTx={() => { setEditingTx(null); setIsModalOpen(true); }} />
+      <Navbar onOpenNewTx={handleOpenAdd} />
 
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 md:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* Alerta de Permissão do Firestore se necessário */}
         {txError === "permission-denied" && (
           <div
-            className="p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+            className="p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-sm"
             style={{
               background: "var(--pending-bg)",
               borderColor: "var(--pending-border)",
@@ -212,36 +231,36 @@ export default function DashboardPage() {
             }}
           >
             <div className="flex items-center gap-2">
-              <span className="font-bold">⚠️ Atenção com o Cloud Firestore:</span>
+              <span className="font-bold text-sm">⚠️ Atenção:</span>
               <span>
-                As regras de segurança do seu banco ainda estão bloqueando leitura/escrita.
-                Basta colar as regras em <strong>Firestore Database → Regras</strong> no Firebase Console.
+                As regras de segurança do seu Cloud Firestore ainda precisam ser publicadas para salvar dados.
               </span>
             </div>
             <a
               href="https://console.firebase.google.com/project/fincontrole-23467/firestore/rules"
               target="_blank"
               rel="noreferrer"
-              className="px-3 py-1.5 rounded-md font-bold text-white whitespace-nowrap shadow-sm hover:opacity-90"
+              className="px-3.5 py-1.5 rounded-lg font-bold text-white whitespace-nowrap shadow-sm hover:opacity-90"
               style={{ background: "var(--accent)" }}
             >
-              Abrir Regras do Firestore
+              Publicar Regras no Firebase
             </a>
           </div>
         )}
-        {/* Barra Superior: Modo de Período e Seletor de Mês */}
+
+        {/* Barra Superior: Modo de Período e Seletor de Data */}
         <div
-          className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl border shadow-sm"
+          className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl border shadow-sm"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
           {/* Seletor de Modo: Mensal / Anual / Custom */}
           <div
-            className="flex items-center p-1 rounded-lg border text-xs font-medium"
+            className="flex items-center p-1 rounded-xl border text-xs font-semibold w-full sm:w-auto"
             style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
           >
             <button
               onClick={() => setViewMode("month")}
-              className={`px-3 py-1.5 rounded-md transition-all ${
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg transition-all ${
                 viewMode === "month" ? "font-bold shadow-sm" : "opacity-60 hover:opacity-100"
               }`}
               style={{
@@ -253,7 +272,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setViewMode("year")}
-              className={`px-3 py-1.5 rounded-md transition-all ${
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg transition-all ${
                 viewMode === "year" ? "font-bold shadow-sm" : "opacity-60 hover:opacity-100"
               }`}
               style={{
@@ -265,7 +284,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setViewMode("custom")}
-              className={`px-3 py-1.5 rounded-md transition-all ${
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg transition-all ${
                 viewMode === "custom" ? "font-bold shadow-sm" : "opacity-60 hover:opacity-100"
               }`}
               style={{
@@ -279,56 +298,56 @@ export default function DashboardPage() {
 
           {/* Navegador de Data */}
           {viewMode === "month" && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setCurrentMonth(shiftMonth(currentMonth, -1))}
-                className="w-8 h-8 rounded-md border flex items-center justify-center transition-opacity hover:opacity-80"
-                style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80 active:scale-95 shadow-sm"
+                style={{ borderColor: "var(--border)", color: "var(--text)", background: "var(--subtle)" }}
                 title="Mês anterior"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={18} />
               </button>
-              <span className="font-bold text-sm min-w-[140px] text-center capitalize">
+              <span className="font-extrabold text-sm sm:text-base min-w-[160px] text-center capitalize tracking-tight">
                 {monthLabel(currentMonth)}
               </span>
               <button
                 onClick={() => setCurrentMonth(shiftMonth(currentMonth, 1))}
-                className="w-8 h-8 rounded-md border flex items-center justify-center transition-opacity hover:opacity-80"
-                style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80 active:scale-95 shadow-sm"
+                style={{ borderColor: "var(--border)", color: "var(--text)", background: "var(--subtle)" }}
                 title="Próximo mês"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={18} />
               </button>
             </div>
           )}
 
           {viewMode === "year" && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setCurrentMonth(shiftMonth(currentMonth, -12))}
-                className="w-8 h-8 rounded-md border flex items-center justify-center"
-                style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80 shadow-sm"
+                style={{ borderColor: "var(--border)", color: "var(--text)", background: "var(--subtle)" }}
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={18} />
               </button>
-              <span className="font-bold text-sm">{currentMonth.slice(0, 4)}</span>
+              <span className="font-extrabold text-base tracking-tight">{currentMonth.slice(0, 4)}</span>
               <button
                 onClick={() => setCurrentMonth(shiftMonth(currentMonth, 12))}
-                className="w-8 h-8 rounded-md border flex items-center justify-center"
-                style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all hover:opacity-80 shadow-sm"
+                style={{ borderColor: "var(--border)", color: "var(--text)", background: "var(--subtle)" }}
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={18} />
               </button>
             </div>
           )}
 
           {viewMode === "custom" && (
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-2 text-xs font-semibold">
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="px-2 py-1 rounded border"
+                className="px-3 py-1.5 rounded-lg border outline-none"
                 style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
               />
               <span>até</span>
@@ -336,128 +355,185 @@ export default function DashboardPage() {
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="px-2 py-1 rounded border"
+                className="px-3 py-1.5 rounded-lg border outline-none"
                 style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
               />
             </div>
           )}
         </div>
 
-        {/* 3 Cards de Resumo: Ganhos, Gastos, Saldo */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Ganhos */}
+        {/* 3 Cards de Resumo: Ganhos, Gastos, Saldo com Botões Dedicados */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Card: Ganhos Previstos */}
           <div
-            className="rounded-xl p-5 border shadow-sm relative overflow-hidden"
+            className="rounded-2xl p-6 border shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
             style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
-            <div className="absolute top-0 left-0 w-full h-1" style={{ background: "var(--gain)" }} />
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase font-bold tracking-wider" style={{ color: "var(--muted)" }}>
-                Ganhos Previstos
-              </span>
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
-              >
-                <TrendingUp size={15} />
+            <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: "var(--gain)" }} />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs uppercase font-extrabold tracking-wider" style={{ color: "var(--muted)" }}>
+                  Ganhos Previstos
+                </span>
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+                  style={{ background: "var(--gain-bg)", color: "var(--gain)" }}
+                >
+                  <TrendingUp size={16} />
+                </div>
+              </div>
+              <div className="text-3xl font-black tabular tracking-tight" style={{ color: "var(--gain)" }}>
+                {brl(summary.totalIn)}
+              </div>
+              <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <span style={{ color: "var(--muted)" }}>Já recebido:</span>
+                <strong className="tabular font-bold" style={{ color: "var(--text)" }}>
+                  {brl(summary.realizedIn)}
+                </strong>
               </div>
             </div>
-            <div className="text-2xl font-black tabular" style={{ color: "var(--gain)" }}>
-              {brl(summary.totalIn)}
-            </div>
-            <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
-              <span style={{ color: "var(--muted)" }}>Já recebido:</span>
-              <strong className="tabular font-semibold" style={{ color: "var(--text)" }}>
-                {brl(summary.realizedIn)}
-              </strong>
-            </div>
-          </div>
 
-          {/* Gastos */}
-          <div
-            className="rounded-xl p-5 border shadow-sm relative overflow-hidden"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
-            <div className="absolute top-0 left-0 w-full h-1" style={{ background: "var(--expense)" }} />
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase font-bold tracking-wider" style={{ color: "var(--muted)" }}>
-                Gastos Previstos
-              </span>
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                style={{ background: "var(--expense-bg)", color: "var(--expense)" }}
-              >
-                <TrendingDown size={15} />
-              </div>
-            </div>
-            <div className="text-2xl font-black tabular" style={{ color: "var(--expense)" }}>
-              {brl(summary.totalOut)}
-            </div>
-            <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
-              <span style={{ color: "var(--muted)" }}>Já pago:</span>
-              <strong className="tabular font-semibold" style={{ color: "var(--text)" }}>
-                {brl(summary.realizedOut)}
-              </strong>
-            </div>
-          </div>
-
-          {/* Saldo Livre */}
-          <div
-            className="rounded-xl p-5 border shadow-sm relative overflow-hidden"
-            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-          >
-            <div className="absolute top-0 left-0 w-full h-1" style={{ background: "var(--accent)" }} />
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase font-bold tracking-wider" style={{ color: "var(--muted)" }}>
-                Saldo Livre Estimado
-              </span>
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                style={{ background: "var(--accent-bg)", color: "var(--accent)" }}
-              >
-                <Wallet size={15} />
-              </div>
-            </div>
-            <div
-              className={`text-2xl font-black tabular ${
-                summary.estimatedBalance >= 0 ? "" : "text-red-500"
-              }`}
-              style={{ color: summary.estimatedBalance >= 0 ? "var(--accent)" : undefined }}
+            {/* Botão Dedicado + Adicionar Ganho */}
+            <button
+              type="button"
+              onClick={() => handleOpenAdd("in")}
+              className="w-full py-2.5 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 active:scale-98 shadow-sm"
+              style={{ background: "var(--gain)" }}
             >
-              {brl(summary.estimatedBalance)}
+              <Plus size={15} />
+              <span>Adicionar Ganho</span>
+            </button>
+          </div>
+
+          {/* Card: Gastos Previstos */}
+          <div
+            className="rounded-2xl p-6 border shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
+            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+          >
+            <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: "var(--expense)" }} />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs uppercase font-extrabold tracking-wider" style={{ color: "var(--muted)" }}>
+                  Gastos Previstos
+                </span>
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+                  style={{ background: "var(--expense-bg)", color: "var(--expense)" }}
+                >
+                  <TrendingDown size={16} />
+                </div>
+              </div>
+              <div className="text-3xl font-black tabular tracking-tight" style={{ color: "var(--expense)" }}>
+                {brl(summary.totalOut)}
+              </div>
+              <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <span style={{ color: "var(--muted)" }}>Já pago:</span>
+                <strong className="tabular font-bold" style={{ color: "var(--text)" }}>
+                  {brl(summary.realizedOut)}
+                </strong>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
-              <span style={{ color: "var(--muted)" }}>Saldo Realizado hoje:</span>
-              <strong
-                className="tabular font-semibold"
-                style={{ color: summary.realizedBalance >= 0 ? "var(--gain)" : "var(--expense)" }}
+
+            {/* Botão Dedicado + Adicionar Gasto */}
+            <button
+              type="button"
+              onClick={() => handleOpenAdd("out")}
+              className="w-full py-2.5 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 active:scale-98 shadow-sm"
+              style={{ background: "var(--expense)" }}
+            >
+              <Plus size={15} />
+              <span>Adicionar Gasto</span>
+            </button>
+          </div>
+
+          {/* Card: Saldo Livre Estimado */}
+          <div
+            className="rounded-2xl p-6 border shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
+            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+          >
+            <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: "var(--accent)" }} />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs uppercase font-extrabold tracking-wider" style={{ color: "var(--muted)" }}>
+                  Saldo Livre Estimado
+                </span>
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+                  style={{ background: "var(--accent-bg)", color: "var(--accent)" }}
+                >
+                  <Wallet size={16} />
+                </div>
+              </div>
+              <div
+                className={`text-3xl font-black tabular tracking-tight ${
+                  summary.estimatedBalance >= 0 ? "" : "text-red-500"
+                }`}
+                style={{ color: summary.estimatedBalance >= 0 ? "var(--accent)" : undefined }}
               >
-                {brl(summary.realizedBalance)}
-              </strong>
+                {brl(summary.estimatedBalance)}
+              </div>
+              <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <span style={{ color: "var(--muted)" }}>Realizado hoje em conta:</span>
+                <strong
+                  className="tabular font-bold"
+                  style={{ color: summary.realizedBalance >= 0 ? "var(--gain)" : "var(--expense)" }}
+                >
+                  {brl(summary.realizedBalance)}
+                </strong>
+              </div>
             </div>
+
+            {/* Atalho de Navegação para Metas */}
+            <button
+              type="button"
+              onClick={() => router.push("/metas")}
+              className="w-full py-2.5 rounded-xl font-bold text-xs border flex items-center justify-center gap-1.5 transition-all hover:opacity-85 shadow-sm"
+              style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
+            >
+              <span>Ver Metas e Reservas →</span>
+            </button>
           </div>
         </section>
 
         {/* Lançamentos do Período */}
         <section
-          className="rounded-xl p-5 border shadow-sm space-y-4"
+          className="rounded-2xl p-6 border shadow-sm space-y-5"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold tracking-tight">Lançamentos do Período</h2>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
-                Clique no badge do status para alternar entre Previsto e Realizado em 1 clique
+              <h2 className="text-lg font-bold tracking-tight">Lançamentos do Período</h2>
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                Alterne entre Previsto e Realizado com apenas 1 clique sobre o badge de status
               </p>
             </div>
-            <div className="text-xs font-semibold px-2.5 py-1 rounded-full border" style={{ background: "var(--subtle)", borderColor: "var(--border)" }}>
-              {displayedTransactions.length} {displayedTransactions.length === 1 ? "item" : "itens"}
+
+            {/* Botões Rápidos de Ganho e Gasto */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => handleOpenAdd("in")}
+                className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 shadow-sm"
+                style={{ background: "var(--gain)" }}
+              >
+                <Plus size={14} />
+                <span>+ Ganho</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOpenAdd("out")}
+                className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 shadow-sm"
+                style={{ background: "var(--expense)" }}
+              >
+                <Plus size={14} />
+                <span>+ Gasto</span>
+              </button>
             </div>
           </div>
 
           {/* Filtros e Busca */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
               {[
                 { id: "all", label: "Todos" },
                 { id: "in", label: "Ganhos (+)" },
@@ -468,13 +544,13 @@ export default function DashboardPage() {
                 <button
                   key={f.id}
                   onClick={() => setTxFilter(f.id as any)}
-                  className={`px-3 py-1 rounded-full border font-medium transition-all ${
-                    txFilter === f.id ? "font-bold shadow-sm" : "hover:opacity-80"
+                  className={`px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+                    txFilter === f.id ? "shadow-sm" : "hover:opacity-80"
                   }`}
                   style={{
-                    background: txFilter === f.id ? "var(--text)" : "var(--surface)",
-                    color: txFilter === f.id ? "var(--surface)" : "var(--muted)",
-                    borderColor: txFilter === f.id ? "var(--text)" : "var(--border)",
+                    background: txFilter === f.id ? "var(--accent)" : "var(--subtle)",
+                    color: txFilter === f.id ? "#ffffff" : "var(--muted)",
+                    borderColor: txFilter === f.id ? "var(--accent)" : "var(--border)",
                   }}
                 >
                   {f.label}
@@ -482,13 +558,14 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <div className="w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
               <input
                 type="text"
-                placeholder="Buscar lançamento…"
+                placeholder="Buscar lançamento ou categoria…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full sm:w-48 px-3 py-1 text-xs rounded-full border outline-none"
+                className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border outline-none font-medium"
                 style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--text)" }}
               />
             </div>
@@ -496,11 +573,34 @@ export default function DashboardPage() {
 
           {/* Lista de Transações */}
           {displayedTransactions.length === 0 ? (
-            <div className="text-center py-12 text-sm" style={{ color: "var(--muted)" }}>
-              Nenhum lançamento encontrado para os filtros selecionados.
+            <div
+              className="text-center py-12 rounded-2xl border space-y-4"
+              style={{ background: "var(--subtle)", borderColor: "var(--border)" }}
+            >
+              <div className="text-sm font-semibold" style={{ color: "var(--muted)" }}>
+                Nenhum lançamento registrado neste período.
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAdd("in")}
+                  className="px-4 py-2.5 rounded-xl font-bold text-xs text-white shadow-sm hover:opacity-90"
+                  style={{ background: "var(--gain)" }}
+                >
+                  + Adicionar Primeiro Ganho
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAdd("out")}
+                  className="px-4 py-2.5 rounded-xl font-bold text-xs text-white shadow-sm hover:opacity-90"
+                  style={{ background: "var(--expense)" }}
+                >
+                  + Adicionar Primeiro Gasto
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+            <div className="divide-y rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
               {displayedTransactions.map((tx) => {
                 const isGain = tx.type === "in";
                 const dateParts = tx.date.split("-");
@@ -509,12 +609,12 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={tx.id}
-                    className="py-3 flex items-center justify-between gap-3 group transition-colors"
+                    className="p-4 flex items-center justify-between gap-4 group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/20"
                   >
                     {/* Lado Esquerdo: Ícone + Info */}
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3.5 min-w-0">
                       <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-none border"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-none border shadow-xs"
                         style={{
                           background: isGain ? "var(--gain-bg)" : "var(--expense-bg)",
                           color: isGain ? "var(--gain)" : "var(--expense)",
@@ -524,11 +624,11 @@ export default function DashboardPage() {
                         {isGain ? "+" : "−"}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 font-semibold text-sm truncate">
+                        <div className="flex items-center gap-2 font-bold text-sm truncate">
                           <span>{tx.desc}</span>
                           {tx.seriesId && (
                             <span
-                              className="text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 border"
+                              className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border"
                               style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--accent)" }}
                               title={`Parcela ${tx.seriesIndex} de ${tx.seriesTotal}`}
                             >
@@ -537,7 +637,7 @@ export default function DashboardPage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+                        <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: "var(--muted)" }}>
                           <span>{tx.cat}</span>
                           <span>•</span>
                           <span>{formattedDate}</span>
@@ -547,7 +647,7 @@ export default function DashboardPage() {
                             type="button"
                             onClick={() => toggleDone(tx.id, !tx.done)}
                             title="Clique para alternar Previsto / Realizado"
-                            className="px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-transform active:scale-95 cursor-pointer"
+                            className="px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-transform active:scale-95 cursor-pointer shadow-2xs"
                             style={{
                               background: tx.done ? "var(--gain-bg)" : "var(--pending-bg)",
                               color: tx.done ? "var(--gain)" : "var(--pending)",
@@ -561,32 +661,32 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Lado Direito: Valor + Ações */}
-                    <div className="flex items-center gap-3 flex-none">
+                    <div className="flex items-center gap-3.5 flex-none">
                       <span
-                        className="font-bold text-sm tabular"
+                        className="font-extrabold text-base tabular tracking-tight"
                         style={{ color: isGain ? "var(--gain)" : "var(--expense)" }}
                       >
                         {isGain ? "+ " : "− "}
                         {brl(tx.amount)}
                       </span>
-                      <div className="flex items-center gap-1 opacity-75 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(tx)}
                           title="Editar lançamento"
-                          className="p-1.5 rounded-md hover:opacity-80"
+                          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                           style={{ color: "var(--muted)" }}
                         >
-                          <Edit2 size={14} />
+                          <Edit2 size={15} />
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeletingTx(tx)}
                           title="Excluir lançamento"
-                          className="p-1.5 rounded-md hover:text-red-500"
+                          className="p-2 rounded-lg hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 transition-colors"
                           style={{ color: "var(--muted)" }}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </div>
@@ -601,34 +701,34 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Evolução dos Últimos 6 Meses */}
           <div
-            className="rounded-xl p-5 border shadow-sm space-y-4"
+            className="rounded-2xl p-6 border shadow-sm space-y-5"
             style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
             <div>
-              <h3 className="text-sm font-bold">Evolução dos Últimos 6 Meses</h3>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>Comparativo mensal de ganhos vs. gastos</p>
+              <h3 className="text-base font-bold tracking-tight">Evolução dos Últimos 6 Meses</h3>
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Comparativo mensal de ganhos vs. gastos</p>
             </div>
 
-            <div className="flex items-end justify-between h-40 pt-6 pb-2 border-b gap-3" style={{ borderColor: "var(--border)" }}>
+            <div className="flex items-end justify-between h-44 pt-6 pb-2 border-b gap-3" style={{ borderColor: "var(--border)" }}>
               {last6.map((d) => {
-                const inHeight = Math.max(3, Math.round((d.in / maxValLast6) * 110));
-                const outHeight = Math.max(3, Math.round((d.out / maxValLast6) * 110));
+                const inHeight = Math.max(4, Math.round((d.in / maxValLast6) * 120));
+                const outHeight = Math.max(4, Math.round((d.out / maxValLast6) * 120));
 
                 return (
-                  <div key={d.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-                    <div className="flex items-end gap-1.5 h-[110px]">
+                  <div key={d.month} className="flex-1 flex flex-col items-center gap-2.5 h-full justify-end">
+                    <div className="flex items-end gap-1.5 h-[120px]">
                       <div
-                        className="w-3 rounded-t transition-all"
+                        className="w-3.5 rounded-t-sm transition-all"
                         style={{ height: `${inHeight}px`, background: "var(--gain)" }}
                         title={`Ganhos ${d.label}: ${brl(d.in)}`}
                       />
                       <div
-                        className="w-3 rounded-t transition-all"
+                        className="w-3.5 rounded-t-sm transition-all"
                         style={{ height: `${outHeight}px`, background: "var(--expense)" }}
                         title={`Gastos ${d.label}: ${brl(d.out)}`}
                       />
                     </div>
-                    <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--muted)" }}>
+                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
                       {d.label}
                     </span>
                   </div>
@@ -636,13 +736,13 @@ export default function DashboardPage() {
               })}
             </div>
 
-            <div className="flex justify-center gap-6 text-xs" style={{ color: "var(--muted)" }}>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "var(--gain)" }} />
+            <div className="flex justify-center gap-6 text-xs font-semibold" style={{ color: "var(--muted)" }}>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-sm" style={{ background: "var(--gain)" }} />
                 <span>Ganhos</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "var(--expense)" }} />
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-sm" style={{ background: "var(--expense)" }} />
                 <span>Gastos</span>
               </div>
             </div>
@@ -650,29 +750,29 @@ export default function DashboardPage() {
 
           {/* Gastos por Categoria */}
           <div
-            className="rounded-xl p-5 border shadow-sm space-y-4"
+            className="rounded-2xl p-6 border shadow-sm space-y-5"
             style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
             <div>
-              <h3 className="text-sm font-bold">Gastos por Categoria</h3>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>Distribuição proporcional das despesas do período</p>
+              <h3 className="text-base font-bold tracking-tight">Gastos por Categoria</h3>
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Distribuição proporcional das despesas do período</p>
             </div>
 
             {categoryStats.length === 0 ? (
-              <div className="text-center py-10 text-xs" style={{ color: "var(--muted)" }}>
+              <div className="text-center py-12 text-xs font-medium" style={{ color: "var(--muted)" }}>
                 Nenhum gasto registrado neste período.
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 {categoryStats.map((item) => (
-                  <div key={item.cat} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-medium">
+                  <div key={item.cat} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-semibold">
                       <span>{item.cat}</span>
-                      <span className="tabular font-semibold">
+                      <span className="tabular">
                         {brl(item.amount)} ({item.pct}%)
                       </span>
                     </div>
-                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--subtle)" }}>
+                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--subtle)" }}>
                       <div
                         className="h-full rounded-full transition-all duration-300"
                         style={{ width: `${item.pct}%`, background: "var(--expense)" }}
@@ -685,46 +785,44 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Tabela Analítica de Acompanhamento (Requisito 6 - Tabela ou Gráfico com acompanhamento detalhado) */}
+        {/* Tabela Analítica de Acompanhamento */}
         <section
-          className="rounded-xl p-5 border shadow-sm space-y-4"
+          className="rounded-2xl p-6 border shadow-sm space-y-4"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold">Tabela Analítica de Movimentações</h3>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>Visão contábil detalhada de todas as entradas e saídas</p>
-            </div>
+          <div>
+            <h3 className="text-base font-bold tracking-tight">Tabela Analítica de Movimentações</h3>
+            <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Visão contábil detalhada de todas as entradas e saídas</p>
           </div>
 
-          <div className="w-full overflow-x-auto border rounded-lg" style={{ borderColor: "var(--border)" }}>
+          <div className="w-full overflow-x-auto border rounded-xl" style={{ borderColor: "var(--border)" }}>
             <table className="w-full text-left text-xs">
               <thead className="uppercase tracking-wider border-b" style={{ background: "var(--subtle)", borderColor: "var(--border)", color: "var(--muted)" }}>
                 <tr>
-                  <th className="py-2.5 px-4 font-semibold">Data</th>
-                  <th className="py-2.5 px-4 font-semibold">Descrição</th>
-                  <th className="py-2.5 px-4 font-semibold">Categoria</th>
-                  <th className="py-2.5 px-4 font-semibold">Tipo</th>
-                  <th className="py-2.5 px-4 font-semibold">Status</th>
-                  <th className="py-2.5 px-4 font-semibold text-right">Valor</th>
+                  <th className="py-3 px-4 font-bold">Data</th>
+                  <th className="py-3 px-4 font-bold">Descrição</th>
+                  <th className="py-3 px-4 font-bold">Categoria</th>
+                  <th className="py-3 px-4 font-bold">Tipo</th>
+                  <th className="py-3 px-4 font-bold">Status</th>
+                  <th className="py-3 px-4 font-bold text-right">Valor</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: "var(--border)" }}>
                 {displayedTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-xs" style={{ color: "var(--muted)" }}>
-                      Sem movimentações registradas.
+                    <td colSpan={6} className="py-8 text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
+                      Sem movimentações registradas neste período.
                     </td>
                   </tr>
                 ) : (
                   displayedTransactions.map((t) => (
-                    <tr key={t.id} className="hover:opacity-85 transition-opacity">
-                      <td className="py-2.5 px-4 tabular font-mono">{t.date}</td>
-                      <td className="py-2.5 px-4 font-semibold">{t.desc}</td>
-                      <td className="py-2.5 px-4">{t.cat}</td>
-                      <td className="py-2.5 px-4">
+                    <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                      <td className="py-3 px-4 tabular font-mono">{t.date}</td>
+                      <td className="py-3 px-4 font-bold">{t.desc}</td>
+                      <td className="py-3 px-4 font-medium">{t.cat}</td>
+                      <td className="py-3 px-4">
                         <span
-                          className="px-2 py-0.5 rounded text-[10px] font-bold"
+                          className="px-2 py-0.5 rounded-full text-[10px] font-bold"
                           style={{
                             background: t.type === "in" ? "var(--gain-bg)" : "var(--expense-bg)",
                             color: t.type === "in" ? "var(--gain)" : "var(--expense)",
@@ -733,9 +831,9 @@ export default function DashboardPage() {
                           {t.type === "in" ? "Entrada" : "Saída"}
                         </span>
                       </td>
-                      <td className="py-2.5 px-4">
+                      <td className="py-3 px-4">
                         <span
-                          className="px-2 py-0.5 rounded text-[10px] font-semibold"
+                          className="px-2 py-0.5 rounded-full text-[10px] font-bold"
                           style={{
                             background: t.done ? "var(--gain-bg)" : "var(--pending-bg)",
                             color: t.done ? "var(--gain)" : "var(--pending)",
@@ -745,7 +843,7 @@ export default function DashboardPage() {
                         </span>
                       </td>
                       <td
-                        className="py-2.5 px-4 text-right font-bold tabular"
+                        className="py-3 px-4 text-right font-extrabold tabular text-sm"
                         style={{ color: t.type === "in" ? "var(--gain)" : "var(--expense)" }}
                       >
                         {t.type === "in" ? "+ " : "− "}
@@ -770,6 +868,7 @@ export default function DashboardPage() {
         onUpdateSeriesFuture={updateSeriesFuture}
         onUpdateSeriesAll={updateSeriesAll}
         initialData={editingTx}
+        defaultType={modalDefaultType}
       />
 
       <SeriesDeleteModal

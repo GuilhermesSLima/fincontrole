@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -35,17 +35,21 @@ export default function ConfiguracoesPage() {
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
-  if (authLoading) {
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/login");
+    }
+  }, [user, authLoading, router]);
+
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
-        <span className="text-sm" style={{ color: "var(--muted)" }}>Carregando…</span>
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }} />
+          <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>Carregando…</span>
+        </div>
       </div>
     );
-  }
-
-  if (!user) {
-    router.replace("/login");
-    return null;
   }
 
   // Exportar backup completo em JSON

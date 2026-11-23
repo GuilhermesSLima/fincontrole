@@ -14,6 +14,7 @@ interface TransactionModalProps {
   onUpdateSeriesFuture?: (seriesId: string, fromIndex: number, data: Partial<Transaction>) => Promise<void>;
   onUpdateSeriesAll?: (seriesId: string, data: Partial<Transaction>) => Promise<void>;
   initialData?: Transaction | null;
+  defaultType?: TransactionType;
 }
 
 export function TransactionModal({
@@ -25,8 +26,9 @@ export function TransactionModal({
   onUpdateSeriesFuture,
   onUpdateSeriesAll,
   initialData,
+  defaultType = "out",
 }: TransactionModalProps) {
-  const [type, setType] = useState<TransactionType>("out");
+  const [type, setType] = useState<TransactionType>(defaultType);
   const [desc, setDesc] = useState("");
   const [amountStr, setAmountStr] = useState("");
   const [cat, setCat] = useState("");
@@ -50,17 +52,17 @@ export function TransactionModal({
       setReps(1);
       setSeriesScope("single");
     } else {
-      setType("out");
+      setType(defaultType);
       setDesc("");
       setAmountStr("");
-      setCat(EXPENSE_CATEGORIES[0]);
+      setCat(defaultType === "in" ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
       setDate(todayStr());
       setReps(1);
       setDone(false);
       setSeriesScope("single");
     }
     setError("");
-  }, [initialData, isOpen]);
+  }, [initialData, defaultType, isOpen]);
 
   useEffect(() => {
     if (!initialData) {
