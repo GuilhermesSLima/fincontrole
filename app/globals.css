@@ -1,26 +1,98 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Light tokens */
+  --bg: #f4f8fc;
+  --surface: #ffffff;
+  --subtle: #f8fafc;
+  --border: #e3ebf3;
+  --border-hover: #cbd9e8;
+  --border-focus: #4f8fcb;
+  --text: #2b3a4a;
+  --muted: #7a8a9a;
+
+  --gain: #3fa57f;
+  --gain-bg: #e6f6ef;
+  --gain-border: #bde5d4;
+  --expense: #d9606b;
+  --expense-bg: #fdecee;
+  --expense-border: #f8c9cf;
+  --accent: #4f8fcb;
+  --accent-bg: #e8f1fa;
+  --accent-hover: #3d7cb8;
+  --pending: #b7861a;
+  --pending-bg: #fff4dc;
+  --pending-border: #f5dfab;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(43,58,74,0.05);
+  --shadow-lg: 0 12px 28px rgba(43,58,74,0.08);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  --bg: #121a24;
+  --surface: #1b2633;
+  --subtle: #17222f;
+  --border: #2a394a;
+  --border-hover: #3b4e64;
+  --border-focus: #7db4e8;
+  --text: #e6edf5;
+  --muted: #93a4b6;
+
+  --gain: #6fd1a8;
+  --gain-bg: #1b3a31;
+  --gain-border: #275245;
+  --expense: #f08a93;
+  --expense-bg: #3d2329;
+  --expense-border: #5a3038;
+  --accent: #7db4e8;
+  --accent-bg: #1e3348;
+  --accent-hover: #93c4f2;
+  --pending: #e0b954;
+  --pending-bg: #3a321a;
+  --pending-border: #574b26;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.22);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.32);
+  --shadow-lg: 0 12px 30px rgba(0,0,0,0.44);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter);
+  transition: background-color 0.16s, color 0.16s;
+  min-height: 100vh;
+}
+
+/* Tabular nums para valores financeiros */
+.tabular { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* Scrollbar invisível */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* Animação de entrada modal */
+@keyframes modalFade {
+  from { opacity: 0; transform: scale(0.98) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal-animate { animation: modalFade 0.15s ease-out; }
+
+/* Animação de entrada de tela */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.2s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }
