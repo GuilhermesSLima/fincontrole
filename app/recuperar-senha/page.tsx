@@ -56,8 +56,8 @@ export default function RecuperarSenhaPage() {
               </p>
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center gap-2 w-full py-2.5 mt-2 rounded-md font-semibold text-sm transition-opacity hover:opacity-90"
-                style={{ background: "var(--text)", color: "var(--surface)" }}
+                className="inline-flex items-center justify-center gap-2 w-full py-2.5 mt-2 rounded-md font-semibold text-sm text-white transition-opacity hover:opacity-90 shadow-sm"
+                style={{ background: "var(--accent)" }}
               >
                 Voltar ao login
               </Link>
@@ -106,8 +106,8 @@ export default function RecuperarSenhaPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-60"
-                  style={{ background: "var(--text)", color: "var(--surface)" }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md font-semibold text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-sm"
+                  style={{ background: "var(--accent)" }}
                 >
                   {loading ? "Enviando…" : (
                     <>Enviar link <ArrowRight size={14} /></>

@@ -1,9 +1,10 @@
 @import "tailwindcss";
+@config "../tailwind.config.ts";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
-
-  /* Light tokens */
+  color-scheme: light;
   --bg: #f4f8fc;
   --surface: #ffffff;
   --subtle: #f8fafc;
@@ -32,6 +33,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --bg: #121a24;
   --surface: #1b2633;
   --subtle: #17222f;
@@ -59,36 +61,63 @@
   --shadow-lg: 0 12px 30px rgba(0,0,0,0.44);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: var(--font-inter);
-  transition: background-color 0.16s, color 0.16s;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Tabular nums para valores financeiros */
-.tabular { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+/* Tabular nums rigoroso para dados monetários */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
 
-/* Scrollbar invisível */
-::-webkit-scrollbar { display: none; }
-* { scrollbar-width: none; }
+/* Scrollbar limpa */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  scrollbar-width: none;
+}
 
-/* Animação de entrada modal */
+/* Modais e transições */
 @keyframes modalFade {
-  from { opacity: 0; transform: scale(0.98) translateY(4px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
-.modal-animate { animation: modalFade 0.15s ease-out; }
+.modal-animate {
+  animation: modalFade 0.15s ease-out forwards;
+}
 
-/* Animação de entrada de tela */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.fade-in { animation: fadeIn 0.2s ease-out; }
+.fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {

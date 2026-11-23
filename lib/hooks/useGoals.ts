@@ -23,16 +23,33 @@ export function useGoals() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
+    if (!user) {
+      setGoals([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     const q = query(
       collection(db, "goals"),
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "asc")
+      where("userId", "==", user.uid)
     );
-    const unsub = onSnapshot(q, (snap) => {
-      setGoals(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Goal)));
-      setLoading(false);
-    });
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as Goal))
+          .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        setGoals(list);
+        setLoading(false);
+      },
+      (error) => {
+        console.warn("Aviso ao buscar metas no Firestore:", error.message);
+        setLoading(false);
+      }
+    );
+
     return unsub;
   }, [user]);
 

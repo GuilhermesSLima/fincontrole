@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const {
     transactions,
     loading: txLoading,
+    error: txError,
     addTransaction,
     addSeries,
     toggleDone,
@@ -200,6 +201,34 @@ export default function DashboardPage() {
       <Navbar onOpenNewTx={() => { setEditingTx(null); setIsModalOpen(true); }} />
 
       <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 md:px-8 py-6 space-y-6">
+        {/* Alerta de Permissão do Firestore se necessário */}
+        {txError === "permission-denied" && (
+          <div
+            className="p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+            style={{
+              background: "var(--pending-bg)",
+              borderColor: "var(--pending-border)",
+              color: "var(--pending)",
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-bold">⚠️ Atenção com o Cloud Firestore:</span>
+              <span>
+                As regras de segurança do seu banco ainda estão bloqueando leitura/escrita.
+                Basta colar as regras em <strong>Firestore Database → Regras</strong> no Firebase Console.
+              </span>
+            </div>
+            <a
+              href="https://console.firebase.google.com/project/fincontrole-23467/firestore/rules"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-md font-bold text-white whitespace-nowrap shadow-sm hover:opacity-90"
+              style={{ background: "var(--accent)" }}
+            >
+              Abrir Regras do Firestore
+            </a>
+          </div>
+        )}
         {/* Barra Superior: Modo de Período e Seletor de Mês */}
         <div
           className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl border shadow-sm"

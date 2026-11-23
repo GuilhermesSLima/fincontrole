@@ -24,20 +24,37 @@ export function useTransactions(month?: string) {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
-
-    const constraints: any[] = [where("userId", "==", user.uid), orderBy("date", "desc")];
-    if (month) constraints.push(where("date", ">=", month + "-01"), where("date", "<=", month + "-31"));
-
-    const q = query(collection(db, "transactions"), ...constraints);
-    const unsub = onSnapshot(q, (snap) => {
-      setTransactions(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Transaction)));
+    if (!user) {
+      setTransactions([]);
       setLoading(false);
-    });
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    const q = query(collection(db, "transactions"), where("userId", "==", user.uid));
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as Transaction))
+          .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0));
+        setTransactions(list);
+        setLoading(false);
+      },
+      (err) => {
+        console.warn("Aviso ao buscar transações no Firestore:", err.message);
+        setError(err.code === "permission-denied" ? "permission-denied" : err.message);
+        setLoading(false);
+      }
+    );
+
     return unsub;
-  }, [user, month]);
+  }, [user]);
 
   const addTransaction = useCallback(
     async (data: Omit<Transaction, "id" | "userId" | "createdAt">) => {
@@ -147,6 +164,7 @@ export function useTransactions(month?: string) {
   return {
     transactions,
     loading,
+    error,
     addTransaction,
     addSeries,
     toggleDone,

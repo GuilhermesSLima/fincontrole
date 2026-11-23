@@ -35,9 +35,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
-        const snap = await getDoc(doc(db, "users", u.uid));
-        if (snap.exists()) {
-          setProfile(snap.data() as UserProfile);
+        try {
+          const snap = await getDoc(doc(db, "users", u.uid));
+          if (snap.exists()) {
+            setProfile(snap.data() as UserProfile);
+          } else {
+            // Se o perfil ainda não existe no Firestore, monta um inicial em memória
+            setProfile({
+              uid: u.uid,
+              email: u.email || "",
+              name: u.displayName || u.email?.split("@")[0] || "Usuário",
+              createdAt: Date.now(),
+              settings: { theme: "system" },
+            });
+          }
+        } catch (err) {
+          console.warn("Aviso ao carregar perfil do Firestore (verifique regras de segurança):", err);
+          // Mesmo se o Firestore estiver com permissão pendente, mantém usuário logado
+          setProfile({
+            uid: u.uid,
+            email: u.email || "",
+            name: u.displayName || u.email?.split("@")[0] || "Usuário",
+            createdAt: Date.now(),
+            settings: { theme: "system" },
+          });
         }
       } else {
         setProfile(null);
