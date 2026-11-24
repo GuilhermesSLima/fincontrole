@@ -59,11 +59,42 @@ export function useTransactions(month?: string) {
   const addTransaction = useCallback(
     async (data: Omit<Transaction, "id" | "userId" | "createdAt">) => {
       if (!user) return;
+      const cleanData: any = {};
+      Object.entries(data).forEach(([key, val]) => {
+        if (val !== undefined) cleanData[key] = val;
+      });
       await addDoc(collection(db, "transactions"), {
-        ...data,
+        ...cleanData,
         userId: user.uid,
         createdAt: Date.now(),
       });
+    },
+    [user]
+  );
+
+  const batchAddTransactions = useCallback(
+    async (items: Omit<Transaction, "id" | "userId" | "createdAt">[]) => {
+      if (!user || !items.length) return 0;
+      const CHUNK_SIZE = 400;
+      let totalInserted = 0;
+      for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+        const chunk = items.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach((item, idx) => {
+          const ref = doc(collection(db, "transactions"));
+          const cleanDoc: any = {
+            userId: user.uid,
+            createdAt: Date.now() + i + idx,
+          };
+          Object.entries(item).forEach(([k, v]) => {
+            if (v !== undefined) cleanDoc[k] = v;
+          });
+          batch.set(ref, cleanDoc);
+        });
+        await batch.commit();
+        totalInserted += chunk.length;
+      }
+      return totalInserted;
     },
     [user]
   );
@@ -166,6 +197,7 @@ export function useTransactions(month?: string) {
     loading,
     error,
     addTransaction,
+    batchAddTransactions,
     addSeries,
     toggleDone,
     updateTransaction,

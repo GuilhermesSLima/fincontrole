@@ -8,6 +8,7 @@ import { useTransactions } from "@/lib/hooks/useTransactions";
 import { useGoals } from "@/lib/hooks/useGoals";
 import { Navbar } from "@/components/Navbar";
 import { TransactionModal } from "@/components/TransactionModal";
+import { Transaction } from "@/types";
 import {
   Settings,
   Download,
@@ -27,7 +28,7 @@ export default function ConfiguracoesPage() {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
 
-  const { transactions, addTransaction } = useTransactions();
+  const { transactions, addTransaction, batchAddTransactions } = useTransactions();
   const { goals } = useGoals();
 
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
@@ -79,52 +80,74 @@ export default function ConfiguracoesPage() {
   };
 
   // Importar arquivo JSON (backup ou do HTML antigo)
-  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setImportStatus("Processando arquivo...");
 
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const raw = JSON.parse(event.target?.result as string);
-        let importedCount = 0;
+        const text = (event.target?.result as string || "").trim();
+        if (!text) {
+          setImportStatus("O arquivo selecionado está vazio.");
+          return;
+        }
 
-        if (Array.isArray(raw)) {
-          for (const item of raw) {
-            if (item.desc && item.amount && item.date) {
-              await addTransaction({
-                desc: item.desc,
-                amount: item.amount,
-                type: item.type === "in" ? "in" : "out",
-                cat: item.cat || "Outros",
-                date: item.date,
-                done: !!item.done,
-              });
-              importedCount++;
+        const raw = JSON.parse(text);
+        const rawItems = Array.isArray(raw)
+          ? raw
+          : raw.transactions && Array.isArray(raw.transactions)
+          ? raw.transactions
+          : null;
+
+        if (!rawItems || !rawItems.length) {
+          setImportStatus("Nenhum lançamento válido encontrado no arquivo JSON.");
+          return;
+        }
+
+        const toInsert: Omit<Transaction, "id" | "userId" | "createdAt">[] = [];
+
+        for (const item of rawItems) {
+          if (item && item.desc && item.amount !== undefined && item.date) {
+            const cleanItem: any = {
+              desc: String(item.desc).trim(),
+              amount: Math.abs(parseFloat(item.amount) || 0),
+              type: item.type === "in" ? "in" : "out",
+              cat: String(item.cat || (item.type === "in" ? "Outros ganhos" : "Outros gastos")).trim(),
+              date: String(item.date).slice(0, 10),
+              done: !!item.done,
+            };
+
+            if (item.seriesId) cleanItem.seriesId = String(item.seriesId);
+            if (item.seriesIndex || item.installmentIndex) {
+              cleanItem.seriesIndex = Number(item.seriesIndex || item.installmentIndex);
             }
-          }
-        } else if (raw.transactions && Array.isArray(raw.transactions)) {
-          for (const item of raw.transactions) {
-            if (item.desc && item.amount && item.date) {
-              await addTransaction({
-                desc: item.desc,
-                amount: item.amount,
-                type: item.type === "in" ? "in" : "out",
-                cat: item.cat || "Outros",
-                date: item.date,
-                done: !!item.done,
-                seriesId: item.seriesId,
-                seriesIndex: item.seriesIndex || item.installmentIndex,
-                seriesTotal: item.seriesTotal || item.installmentTotal,
-              });
-              importedCount++;
+            if (item.seriesTotal || item.installmentTotal) {
+              cleanItem.seriesTotal = Number(item.seriesTotal || item.installmentTotal);
             }
+
+            toInsert.push(cleanItem);
           }
         }
 
-        setImportStatus(`Sucesso! ${importedCount} lançamentos importados.`);
-      } catch (err) {
-        setImportStatus("Erro ao processar arquivo JSON. Verifique o formato.");
+        if (!toInsert.length) {
+          setImportStatus("Nenhum lançamento com descrição, valor e data válidos foi encontrado.");
+          return;
+        }
+
+        const count = await batchAddTransactions(toInsert);
+        setImportStatus(`✅ Sucesso! ${count} lançamentos importados com sucesso para sua conta.`);
+      } catch (err: any) {
+        console.error("Erro detalhado da importação:", err);
+        if (err?.code === "permission-denied" || err?.message?.includes("Missing or insufficient permissions")) {
+          setImportStatus("⚠️ Erro de permissão no Firebase. As regras de segurança do Firestore ainda precisam ser publicadas no Firebase Console.");
+        } else {
+          setImportStatus(`Erro ao importar: ${err?.message || "Verifique o formato do arquivo."}`);
+        }
+      } finally {
+        e.target.value = "";
       }
     };
     reader.readAsText(file);
