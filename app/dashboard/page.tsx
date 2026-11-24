@@ -415,11 +415,11 @@ export default function DashboardPage() {
         </section>
 
         {/* LANÇAMENTOS DO PERÍODO */}
-        <section className="fc-card" style={{ marginBottom: 24 }}>
+        <section className="fc-card" style={{ marginBottom: 32 }}>
           <div className="fc-card-header">
             <div>
               <h2 className="fc-card-title">
-                <Layers size={18} style={{ color: "var(--accent)" }} />
+                <Layers size={19} style={{ color: "var(--accent)" }} />
                 <span>Lançamentos do Período</span>
               </h2>
               <p className="fc-card-subtitle">
@@ -427,7 +427,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <span className="fc-badge fc-badge-accent">
                 {filteredTransactions.length} {filteredTransactions.length === 1 ? "item" : "itens"}
               </span>
@@ -450,8 +450,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Barra de Filtros e Busca */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          {/* Barra de Filtros e Busca com espaçamento generoso */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="fc-filter-group">
               <button
                 type="button"
@@ -491,10 +491,10 @@ export default function DashboardPage() {
             </div>
 
             {/* Input de Busca */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-72">
               <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2"
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2"
                 style={{ color: "var(--text-muted)" }}
               />
               <input
@@ -503,7 +503,7 @@ export default function DashboardPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="fc-input"
-                style={{ paddingLeft: 32, paddingTop: 6, paddingBottom: 6, fontSize: "0.82rem" }}
+                style={{ paddingLeft: 38, paddingTop: 8, paddingBottom: 8, fontSize: "0.85rem" }}
               />
             </div>
           </div>
@@ -511,39 +511,40 @@ export default function DashboardPage() {
           {/* Lista de Transações */}
           {filteredTransactions.length === 0 ? (
             <div
-              className="p-10 text-center rounded-xl border border-dashed flex flex-col items-center justify-center gap-3"
+              className="p-12 sm:p-16 text-center rounded-2xl border border-dashed flex flex-col items-center justify-center gap-4"
               style={{ borderColor: "var(--border)", background: "var(--subtle)" }}
             >
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center"
-                style={{ background: "var(--surface)", color: "var(--text-muted)" }}
-              >
-                <Search size={22} />
-              </div>
-              <div>
-                <p className="text-sm font-bold" style={{ color: "var(--text)" }}>
+              <img
+                src="/logo.png"
+                alt="FinControle"
+                className="w-14 h-14 object-contain opacity-85 mb-1 drop-shadow-sm"
+              />
+              <div className="space-y-1">
+                <p className="text-base font-extrabold" style={{ color: "var(--text)" }}>
                   Nenhum lançamento encontrado
                 </p>
-                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                <p className="text-xs sm:text-sm max-w-md mx-auto" style={{ color: "var(--text-muted)" }}>
                   {search
-                    ? "Tente buscar por outro termo ou limpar os filtros."
-                    : "Cadastre seu primeiro ganho ou gasto para começar a gerenciar suas finanças."}
+                    ? "Tente buscar por outro termo ou limpar os filtros aplicados."
+                    : "Cadastre seu primeiro ganho ou gasto para começar a gerenciar suas finanças com clareza e precisão."}
                 </p>
               </div>
-              <div className="flex gap-2 mt-2">
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-3">
                 <button
                   type="button"
                   onClick={() => handleOpenAdd("in")}
-                  className="fc-btn fc-btn-gain fc-btn-sm"
+                  className="fc-btn fc-btn-gain"
+                  style={{ padding: "10px 18px" }}
                 >
-                  <Plus size={14} /> + Cadastrar Ganho
+                  <Plus size={15} /> <span>Cadastrar Ganho</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleOpenAdd("out")}
-                  className="fc-btn fc-btn-expense fc-btn-sm"
+                  className="fc-btn fc-btn-expense"
+                  style={{ padding: "10px 18px" }}
                 >
-                  <Plus size={14} /> + Cadastrar Gasto
+                  <Plus size={15} /> <span>Cadastrar Gasto</span>
                 </button>
               </div>
             </div>

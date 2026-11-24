@@ -54,15 +54,14 @@ export default function RegisterPage() {
     >
       <div className="w-full max-w-[420px] space-y-6">
         {/* Cabeçalho de Marca */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2.5">
-            <span
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-md tracking-tight"
-              style={{ background: "var(--accent)" }}
-            >
-              FC
-            </span>
-            <span className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>
+        <div className="text-center space-y-3">
+          <div className="flex flex-col items-center justify-center gap-2">
+            <img
+              src="/logo.png"
+              alt="FinControle"
+              className="w-16 h-16 object-contain drop-shadow-md mx-auto"
+            />
+            <span className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: "var(--text)" }}>
               FinControle
             </span>
           </div>
@@ -75,16 +74,16 @@ export default function RegisterPage() {
         <div
           className="fc-card"
           style={{
-            padding: "32px 28px",
+            padding: "36px 32px",
             boxShadow: "var(--shadow-lg)",
             borderRadius: "var(--radius-xl)",
           }}
         >
           <div className="mb-6">
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+            <h1 className="text-xl font-extrabold tracking-tight" style={{ color: "var(--text)" }}>
               Criar sua conta
             </h1>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--text-muted)" }}>
               Comece a gerenciar suas finanças gratuitamente
             </p>
           </div>
@@ -103,9 +102,9 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="fc-label">Nome Completo</label>
+              <label className="fc-label" style={{ marginBottom: 6 }}>Nome Completo</label>
               <div className="relative">
                 <User
                   size={16}
@@ -195,7 +194,7 @@ export default function RegisterPage() {
               type="submit"
               disabled={loading}
               className="fc-btn fc-btn-primary w-full"
-              style={{ padding: "12px", fontSize: "0.9rem", marginTop: 8 }}
+              style={{ padding: "13px", fontSize: "0.92rem", marginTop: 12 }}
             >
               {loading ? (
                 <span>Criando conta…</span>

@@ -56,23 +56,22 @@ export function Navbar({ onOpenNewTx }: NavbarProps) {
         borderColor: "var(--border)",
       }}
     >
-      <div className="fc-container" style={{ paddingTop: 10, paddingBottom: 10 }}>
-        <div className="flex items-center justify-between gap-4">
+      <div className="fc-container" style={{ paddingTop: 12, paddingBottom: 12 }}>
+        <div className="flex items-center justify-between gap-6">
           {/* Logo & Marca */}
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="flex items-center gap-2.5 group">
-              <span
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black text-white shadow-sm"
-                style={{ background: "var(--accent)" }}
-              >
-                FC
-              </span>
-              <span className="font-bold text-base sm:text-lg tracking-tight" style={{ color: "var(--text)" }}>
+            <Link href="/dashboard" className="flex items-center gap-3 group">
+              <img
+                src="/logo.png"
+                alt="FinControle"
+                className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow-sm transition-transform duration-200 group-hover:scale-105"
+              />
+              <span className="font-extrabold text-base sm:text-lg tracking-tight" style={{ color: "var(--text)" }}>
                 FinControle
               </span>
             </Link>
             <span
-              className="text-[11px] px-2 py-0.5 rounded-full font-bold border hidden sm:inline-block"
+              className="text-[11px] px-2.5 py-0.5 rounded-full font-bold border hidden sm:inline-block"
               style={{
                 background: "var(--subtle)",
                 borderColor: "var(--border)",
@@ -84,7 +83,7 @@ export function Navbar({ onOpenNewTx }: NavbarProps) {
           </div>
 
           {/* Abas de Navegação Desktop */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1.5">
             {navItems.map((item) => {
               const active = pathname === item.href;
               const Icon = item.icon;
@@ -92,14 +91,14 @@ export function Navbar({ onOpenNewTx }: NavbarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all"
                   style={{
                     background: active ? "var(--accent-bg)" : "transparent",
                     color: active ? "var(--accent)" : "var(--text-muted)",
                     border: active ? "1px solid var(--accent-border)" : "1px solid transparent",
                   }}
                 >
-                  <Icon size={15} />
+                  <Icon size={16} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -107,7 +106,7 @@ export function Navbar({ onOpenNewTx }: NavbarProps) {
           </nav>
 
           {/* Ações da Direita */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {/* Botão + Ganho (Verde Esmeralda) */}
             <button
               type="button"

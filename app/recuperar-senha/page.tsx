@@ -38,15 +38,14 @@ export default function ForgotPasswordPage() {
     >
       <div className="w-full max-w-[420px] space-y-6">
         {/* Cabeçalho de Marca */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2.5">
-            <span
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-md tracking-tight"
-              style={{ background: "var(--accent)" }}
-            >
-              FC
-            </span>
-            <span className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>
+        <div className="text-center space-y-3">
+          <div className="flex flex-col items-center justify-center gap-2">
+            <img
+              src="/logo.png"
+              alt="FinControle"
+              className="w-16 h-16 object-contain drop-shadow-md mx-auto"
+            />
+            <span className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: "var(--text)" }}>
               FinControle
             </span>
           </div>
@@ -59,16 +58,16 @@ export default function ForgotPasswordPage() {
         <div
           className="fc-card"
           style={{
-            padding: "32px 28px",
+            padding: "36px 32px",
             boxShadow: "var(--shadow-lg)",
             borderRadius: "var(--radius-xl)",
           }}
         >
           <div className="mb-6">
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+            <h1 className="text-xl font-extrabold tracking-tight" style={{ color: "var(--text)" }}>
               Recuperar senha
             </h1>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--text-muted)" }}>
               Digite seu e-mail para receber as instruções de redefinição
             </p>
           </div>
